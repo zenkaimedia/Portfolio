@@ -21,8 +21,7 @@ export default function Logo({
       src={src}
       alt="Zenkai Media"
       draggable={false}
-      className={`w-auto select-none ${className}`}
-      style={{ filter: "invert(1)" }}
+      className={`logo-img w-auto select-none ${className}`}
     />
   );
 }

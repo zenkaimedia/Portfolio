@@ -25,6 +25,19 @@
   color-scheme: dark;
 }
 
+html.light {
+  color-scheme: light;
+  --color-ink: #faf8f5;
+  --color-ink-2: #f0ece8;
+  --color-panel: #e6e1db;
+  --color-line: #cec8c0;
+  --color-bone: #1c1916;
+  --color-muted: #7a766f;
+  --color-gold: #c98f08;
+  --color-gold-soft: #a97500;
+  --color-ember: #d4521a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -131,6 +144,37 @@ body::after {
 /* Thin top hairline used on panels */
 .hairline {
   background-image: linear-gradient(90deg, transparent, var(--color-line), transparent);
+}
+
+/* ── Light mode overrides ─────────────────────────────────────────────────── */
+html.light body {
+  background: var(--color-ink);
+  color: var(--color-bone);
+}
+
+html.light body::before {
+  background:
+    radial-gradient(900px 600px at 12% -5%, rgba(201, 143, 8, 0.06), transparent 60%),
+    radial-gradient(800px 700px at 100% 8%, rgba(212, 82, 26, 0.04), transparent 55%),
+    var(--color-ink);
+}
+
+/* Remove film grain in light mode */
+html.light body::after {
+  display: none;
+}
+
+/* Logo: black mark on dark bg → inverted; on light bg → natural */
+.logo-img { filter: invert(1); }
+html.light .logo-img { filter: none; }
+
+/* Scrollbars */
+html.light ::-webkit-scrollbar-thumb { background: #c0b8b0; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #a8a09a; }
+
+html.light ::selection {
+  background: var(--color-gold);
+  color: #fff;
 }
 
 /* Media protection — prevent long-press save on iOS and drag-to-desktop */

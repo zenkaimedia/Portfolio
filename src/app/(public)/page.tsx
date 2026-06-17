@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 export default function Home() {
   return (
@@ -15,11 +16,12 @@ export default function Home() {
       {/* Header */}
       <header className="flex items-center justify-between gap-3 px-5 py-5 sm:px-6 md:px-12 md:py-6">
         <Logo className="h-6 sm:h-7 md:h-9" />
-        <nav className="flex items-center gap-5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted sm:gap-8 sm:text-[11px] sm:tracking-[0.25em]">
+        <nav className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted sm:gap-6 sm:text-[11px] sm:tracking-[0.25em]">
           <span className="hidden text-bone/70 sm:inline">est. 2024</span>
           <Link href="/work" className="transition-colors hover:text-gold">
             Our Work →
           </Link>
+          <ThemeToggle />
         </nav>
       </header>
 

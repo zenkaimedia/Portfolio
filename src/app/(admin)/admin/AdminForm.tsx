@@ -20,12 +20,52 @@ export default function AdminForm({
 }) {
   const [type, setType] = useState<"image" | "video" | "website">("image");
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isFileType = type === "image" || type === "video";
+  const isMulti = selectedFiles.length > 1;
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function uploadOne(
+    file: File,
+    title: string,
+    category: string,
+    subcategory: string,
+    description: string
+  ) {
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "";
+    const folder = [slugify(category), subcategory && slugify(subcategory)]
+      .filter(Boolean)
+      .join("/");
+    const path = `${folder}/${Date.now()}-${slugify(title)}${ext ? "." + ext : ""}`;
+
+    const signed = await createSignedUploadUrlAction(path);
+    if ("error" in signed) throw new Error(signed.error);
+
+    const up = await supabaseBrowser.storage
+      .from(MEDIA_BUCKET)
+      .uploadToSignedUrl(signed.path, signed.token, file, {
+        contentType: file.type || undefined,
+      });
+    if (up.error) throw new Error(up.error.message);
+
+    const media = supabaseBrowser.storage
+      .from(MEDIA_BUCKET)
+      .getPublicUrl(signed.path).data.publicUrl;
+
+    const res = await createProjectAction({
+      title,
+      category,
+      subcategory,
+      type,
+      media,
+      description,
+    });
+    if ("error" in res) throw new Error(res.error);
+  }
+
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const title = String(fd.get("title") ?? "").trim();
@@ -33,78 +73,75 @@ export default function AdminForm({
     const subcategory = String(fd.get("subcategory") ?? "").trim();
     const description = String(fd.get("description") ?? "").trim();
     const websiteUrl = String(fd.get("url") ?? "").trim();
-    const file = fileRef.current?.files?.[0];
 
-    if (!title || !category) {
-      setStatus({ state: "error", msg: "Title and category are required." });
+    if (!category) {
+      setStatus({ state: "error", msg: "Category is required." });
       return;
     }
 
     try {
-      let media = "";
-
       if (isFileType) {
-        if (!file) {
-          setStatus({ state: "error", msg: "Please choose a file." });
-          return;
-        }
-        // 1. build a storage path
-        const ext = file.name.includes(".") ? file.name.split(".").pop() : "";
-        const folder = [slugify(category), subcategory && slugify(subcategory)]
-          .filter(Boolean)
-          .join("/");
-        const path = `${folder}/${Date.now()}-${slugify(title)}${ext ? "." + ext : ""}`;
-
-        // 2. get a one-time signed upload URL from the server
-        setStatus({ state: "busy", msg: "Preparing upload…" });
-        const signed = await createSignedUploadUrlAction(path);
-        if ("error" in signed) {
-          setStatus({ state: "error", msg: signed.error });
+        if (selectedFiles.length === 0) {
+          setStatus({ state: "error", msg: "Please choose at least one file." });
           return;
         }
 
-        // 3. upload the file DIRECTLY to Supabase Storage
-        setStatus({ state: "busy", msg: "Uploading file…" });
-        const up = await supabaseBrowser.storage
-          .from(MEDIA_BUCKET)
-          .uploadToSignedUrl(signed.path, signed.token, file, {
-            contentType: file.type || undefined,
+        // Single file needs a user-supplied title; multi-file derives from filename.
+        if (!isMulti && !title) {
+          setStatus({ state: "error", msg: "Title is required." });
+          return;
+        }
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          const fileTitle = isMulti
+            ? file.name.replace(/\.[^/.]+$/, "").trim() || file.name
+            : title;
+
+          setStatus({
+            state: "busy",
+            msg: isMulti
+              ? `Uploading ${i + 1} / ${selectedFiles.length} — ${file.name}`
+              : "Uploading file…",
           });
-        if (up.error) {
-          setStatus({ state: "error", msg: up.error.message });
-          return;
+
+          await uploadOne(file, fileTitle, category, subcategory, description);
         }
 
-        media = supabaseBrowser.storage
-          .from(MEDIA_BUCKET)
-          .getPublicUrl(signed.path).data.publicUrl;
+        setStatus({
+          state: "ok",
+          msg: isMulti
+            ? `${selectedFiles.length} files uploaded successfully.`
+            : `"${title}" added.`,
+        });
       } else {
         // website
+        if (!title) {
+          setStatus({ state: "error", msg: "Title is required." });
+          return;
+        }
         if (!websiteUrl) {
           setStatus({ state: "error", msg: "Please enter the website URL." });
           return;
         }
-        media = websiteUrl;
+        setStatus({ state: "busy", msg: "Saving project…" });
+        const res = await createProjectAction({
+          title,
+          category,
+          subcategory,
+          type,
+          media: websiteUrl,
+          description,
+        });
+        if ("error" in res) {
+          setStatus({ state: "error", msg: res.error });
+          return;
+        }
+        setStatus({ state: "ok", msg: `"${title}" added.` });
       }
 
-      // 4. insert the row (server-side, service role)
-      setStatus({ state: "busy", msg: "Saving project…" });
-      const res = await createProjectAction({
-        title,
-        category,
-        subcategory,
-        type,
-        media,
-        description,
-      });
-      if ("error" in res) {
-        setStatus({ state: "error", msg: res.error });
-        return;
-      }
-
-      setStatus({ state: "ok", msg: `"${title}" added.` });
-      // reset title / file / description; keep category + subcategory for batches
       formRef.current?.reset();
+      setSelectedFiles([]);
       if (fileRef.current) fileRef.current.value = "";
     } catch (err) {
       setStatus({
@@ -118,9 +155,12 @@ export default function AdminForm({
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
-      <Field label="Title">
-        <input name="title" required className={inputCls} placeholder="Realistic" />
-      </Field>
+      {/* Title — hidden for multi-file batches (filename is used instead) */}
+      {(!isFileType || !isMulti) && (
+        <Field label="Title">
+          <input name="title" className={inputCls} placeholder="Realistic" />
+        </Field>
+      )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label="Category (top folder)">
@@ -157,7 +197,11 @@ export default function AdminForm({
         <select
           name="type"
           value={type}
-          onChange={(e) => setType(e.target.value as typeof type)}
+          onChange={(e) => {
+            setType(e.target.value as typeof type);
+            setSelectedFiles([]);
+            if (fileRef.current) fileRef.current.value = "";
+          }}
           className={inputCls}
         >
           <option value="image">Image</option>
@@ -167,13 +211,38 @@ export default function AdminForm({
       </Field>
 
       {isFileType ? (
-        <Field label={type === "video" ? "Video file" : "Image file"}>
+        <Field label={type === "video" ? "Video files" : "Image files"}>
           <input
             ref={fileRef}
             type="file"
+            multiple
             accept={type === "video" ? "video/*" : "image/*"}
+            onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
             className="block w-full text-sm text-muted file:mr-4 file:rounded-full file:border file:border-gold/40 file:bg-gold/10 file:px-4 file:py-2 file:font-mono file:text-[11px] file:uppercase file:tracking-[0.2em] file:text-gold-soft hover:file:bg-gold/20"
           />
+
+          {/* Selected files list */}
+          {selectedFiles.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+                {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected
+                {isMulti && <span className="ml-2 text-gold/70">— titles taken from filenames</span>}
+              </p>
+              <ul className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-line bg-ink/40 px-3 py-2">
+                {selectedFiles.map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 font-mono text-[11px] text-bone/70">
+                    <span className="shrink-0 text-gold/50">
+                      {type === "video" ? "▶" : "▪"}
+                    </span>
+                    <span className="truncate">{f.name}</span>
+                    <span className="ml-auto shrink-0 text-muted/50">
+                      {(f.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Field>
       ) : (
         <Field label="Website URL">
@@ -196,7 +265,11 @@ export default function AdminForm({
           disabled={busy}
           className="rounded-full border border-gold/40 bg-gold/10 px-7 py-3 font-mono text-xs uppercase tracking-[0.25em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20 disabled:opacity-50"
         >
-          {busy ? "Working…" : "Add project"}
+          {busy
+            ? "Working…"
+            : isMulti
+              ? `Upload ${selectedFiles.length} files`
+              : "Add project"}
         </button>
 
         {status.state !== "idle" && (

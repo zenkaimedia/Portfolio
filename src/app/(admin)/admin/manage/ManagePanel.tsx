@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import type { Project } from "@/lib/types";
+import { transformImage } from "@/lib/image";
 import {
   updateProjectAction,
   deleteProjectAction,
@@ -624,7 +625,7 @@ function Item({
         {project.type === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={project.media}
+            src={transformImage(project.media, 150, 70)}
             alt=""
             loading="lazy"
             className="h-full w-full object-cover"

@@ -9,7 +9,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import type { Project, TreeNode } from "@/lib/types";
+import type { FileNode, Project, TreeNode } from "@/lib/types";
 import {
   activeSlugs,
   buildTree,
@@ -17,14 +17,16 @@ import {
   flattenFiles,
   resolvePath,
 } from "@/lib/tree";
-import Logo from "./Logo";
+import Logo from "./ui/Logo";
 import MediaViewer from "./MediaViewer";
+import MediaStage from "./MediaStage";
+import { screenshotUrl } from "@/lib/screenshot";
 import {
   ChevronRight,
   FileIcon,
   FolderIcon,
   SearchIcon,
-} from "./icons";
+} from "./ui/icons";
 
 const COL_WIDTH = 264;
 
@@ -44,11 +46,16 @@ function useIsMobile() {
 export default function Browser({
   projects,
   initialPath,
+  folderOrder = {},
 }: {
   projects: Project[];
   initialPath: string[];
+  folderOrder?: Record<string, number>;
 }) {
-  const tree = useMemo(() => buildTree(projects), [projects]);
+  const tree = useMemo(
+    () => buildTree(projects, folderOrder),
+    [projects, folderOrder]
+  );
   const flat = useMemo(() => flattenFiles(tree), [tree]);
   const isMobile = useIsMobile();
 
@@ -63,12 +70,16 @@ export default function Browser({
   const selected = useMemo(() => activeSlugs(chain, file), [chain, file]);
 
   // ── URL sync ──────────────────────────────────────────────────────────────
-  const navigate = useCallback((slugs: string[]) => {
+  // replace=true updates the URL WITHOUT adding a history entry — used when
+  // swiping between sibling files so the device Back button returns to the
+  // folder instead of stepping through every photo.
+  const navigate = useCallback((slugs: string[], replace = false) => {
     setPath(slugs);
     const url =
       "/work" +
       (slugs.length ? "/" + slugs.map(encodeURIComponent).join("/") : "");
-    window.history.pushState({}, "", url);
+    if (replace) window.history.replaceState({}, "", url);
+    else window.history.pushState({}, "", url);
   }, []);
 
   useEffect(() => {
@@ -97,11 +108,25 @@ export default function Browser({
   };
 
   const closeViewer = useCallback(() => {
-    navigate(chain.map((f) => f.slug));
+    // A file is opened with ONE pushState over the folder, and sibling swipes
+    // only replace it — so a single back step lands cleanly on the folder.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate(chain.map((f) => f.slug), true);
+    }
   }, [chain, navigate]);
 
-  const urlPath =
-    "/work" + (selected.length ? "/" + selected.join("/") : "");
+  // Sibling files in the current file's folder (for swipe prev/next).
+  const parentFolder = file ? chain[chain.length - 1] : undefined;
+  const siblingFiles = parentFolder
+    ? (parentFolder.children.filter((c) => c.kind === "file") as FileNode[])
+    : [];
+  const fileIndex = file
+    ? siblingFiles.findIndex((f) => f.slug === file.slug)
+    : -1;
+  const gotoSibling = (i: number) =>
+    navigate([...chain.map((f) => f.slug), siblingFiles[i].slug], true);
 
   // Breadcrumb segments
   const crumbs: { name: string; slugs: string[] }[] = [
@@ -177,29 +202,92 @@ export default function Browser({
             );
           })}
 
-          {/* Empty-state hint when nothing selected */}
-          {columns.length === 1 && columns[0].length === 0 && (
+          {columns.length === 1 && columns[0].length === 0 ? (
+            /* Empty-state hint */
             <div className="flex flex-1 items-center justify-center">
               <p className="font-mono text-xs uppercase tracking-[0.25em] text-muted">
                 No work to show yet — add rows to your projects table.
               </p>
             </div>
+          ) : (
+            /* Inline preview pane (the right-hand area) */
+            <DesktopPreview file={file} trail={chain.map((f) => f.name)} />
           )}
         </div>
       )}
 
-      {/* Cinematic viewer */}
+      {/* Mobile-only popup viewer (desktop uses the inline preview pane) */}
       <AnimatePresence>
-        {file && (
+        {isMobile && file && (
           <MediaViewer
             file={file}
             trail={chain.map((f) => f.name)}
-            urlPath={urlPath}
             onClose={closeViewer}
+            index={fileIndex}
+            total={siblingFiles.length}
+            onPrev={fileIndex > 0 ? () => gotoSibling(fileIndex - 1) : undefined}
+            onNext={
+              fileIndex < siblingFiles.length - 1
+                ? () => gotoSibling(fileIndex + 1)
+                : undefined
+            }
           />
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+/* ── Desktop: inline preview pane (right-hand area) ────────────────────────── */
+function DesktopPreview({
+  file,
+  trail,
+}: {
+  file: FileNode | null;
+  trail: string[];
+}) {
+  if (!file) {
+    return (
+      <div className="flex min-w-[420px] flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+        <Logo variant="mark" className="h-12 opacity-[0.12]" />
+        <span className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted/50">
+          Select an item to preview
+        </span>
+      </div>
+    );
+  }
+
+  const { project } = file;
+  return (
+    <motion.div
+      key={project.id}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+      className="flex min-w-[420px] flex-1 flex-col overflow-hidden"
+    >
+      <div className="flex items-center gap-3 px-6 pb-3 pt-5">
+        <span className="rounded-full border border-gold/40 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-gold-soft">
+          {project.type}
+        </span>
+        {trail.length > 0 && (
+          <span className="truncate font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+            {trail.join("  ·  ")}
+          </span>
+        )}
+      </div>
+      <h2 className="truncate px-6 pb-4 font-display text-2xl font-bold text-bone">
+        {project.title}
+      </h2>
+
+      <MediaStage file={file} />
+
+      {project.description && (
+        <p className="px-6 py-4 text-sm leading-relaxed text-muted">
+          {project.description}
+        </p>
+      )}
+    </motion.div>
   );
 }
 
@@ -398,7 +486,9 @@ function Thumb({ project }: { project: Project }) {
           src={project.media}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-100"
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+          className="h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-100 select-none"
         />
       </span>
     );
@@ -410,10 +500,18 @@ function Thumb({ project }: { project: Project }) {
       </span>
     );
   }
-  // website — nothing to capture, show the globe glyph in a tile
+  // website — auto-generated screenshot, falling back to a globe glyph
   return (
-    <span className={`${THUMB} grid place-items-center text-muted`}>
-      <FileIcon type="website" />
+    <span className={THUMB}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={screenshotUrl(project.media, 240)}
+        alt=""
+        loading="lazy"
+        draggable={false}
+        onContextMenu={(e) => e.preventDefault()}
+        className="h-full w-full select-none object-cover object-top opacity-90 transition-opacity group-hover:opacity-100"
+      />
     </span>
   );
 }
@@ -426,7 +524,9 @@ function VideoThumb({ src }: { src: string }) {
       muted
       playsInline
       preload="metadata"
-      // Seek slightly past 0 so a real frame paints instead of a black frame.
+      controlsList="nodownload"
+      disablePictureInPicture
+      onContextMenu={(e) => e.preventDefault()}
       onLoadedMetadata={(e) => {
         try {
           e.currentTarget.currentTime = 0.1;

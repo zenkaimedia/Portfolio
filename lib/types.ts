@@ -8,6 +8,7 @@ export interface Project {
   type: ProjectType;
   media: string;
   description: string | null;
+  sort_order: number;
   created_at: string | null;
   updated_at: string | null;
 }

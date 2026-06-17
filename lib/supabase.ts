@@ -20,19 +20,58 @@ export function getSupabase() {
   });
 }
 
+const BASE_COLUMNS =
+  "id, title, category, subcategory, type, media, description, created_at, updated_at";
+
 export async function fetchProjects(): Promise<Project[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+
+  // Preferred query (includes sort_order for manual ordering).
+  const withOrder = await supabase
     .from("projects")
-    .select(
-      "id, title, category, subcategory, type, media, description, created_at, updated_at"
-    )
+    .select(`${BASE_COLUMNS}, sort_order`)
+    .order("category", { ascending: true })
+    .order("subcategory", { ascending: true, nullsFirst: true })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (!withOrder.error) {
+    return (withOrder.data ?? []) as Project[];
+  }
+
+  // Fallback for databases that haven't added the sort_order column yet —
+  // keeps the site working before the migration is run.
+  const basic = await supabase
+    .from("projects")
+    .select(BASE_COLUMNS)
     .order("category", { ascending: true })
     .order("subcategory", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true });
 
-  if (error) {
-    throw new Error(`Supabase query failed: ${error.message}`);
+  if (basic.error) {
+    throw new Error(`Supabase query failed: ${basic.error.message}`);
   }
-  return (data ?? []) as Project[];
+  return (basic.data ?? []).map((row) => ({
+    ...(row as Omit<Project, "sort_order">),
+    sort_order: 0,
+  }));
+}
+
+/** Manual folder ordering: { "AI": 0, "AI/AI Commercials": 1, ... }.
+ *  Returns {} gracefully if the folder_order table doesn't exist yet. */
+export async function fetchFolderOrder(): Promise<Record<string, number>> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("folder_order")
+      .select("path, position");
+    if (error || !data) return {};
+    const out: Record<string, number> = {};
+    for (const row of data as { path: string; position: number }[]) {
+      out[row.path] = row.position;
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }

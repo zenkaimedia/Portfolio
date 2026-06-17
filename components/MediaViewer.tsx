@@ -1,26 +1,55 @@
 "use client";
 
-import { useEffect } from "react";
-import { motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { FileNode } from "@/lib/types";
-import { CloseIcon, ExternalIcon } from "./icons";
+import { CloseIcon, ChevronRight } from "./ui/icons";
+import MediaStage from "./MediaStage";
+
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
 
 export default function MediaViewer({
   file,
   trail,
-  urlPath,
   onClose,
+  onPrev,
+  onNext,
+  index = 0,
+  total = 1,
 }: {
   file: FileNode;
   trail: string[];
-  urlPath: string;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  index?: number;
+  total?: number;
 }) {
-  const { project } = file;
+  const [direction, setDirection] = useState(0);
+  const canSwipe = total > 1;
+
+  const goNext = () => {
+    if (onNext) {
+      setDirection(1);
+      onNext();
+    }
+  };
+  const goPrev = () => {
+    if (onPrev) {
+      setDirection(-1);
+      onPrev();
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -28,15 +57,16 @@ export default function MediaViewer({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, onPrev, onNext]);
 
   return (
     <motion.div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4 md:p-10"
+      className="fixed inset-0 z-40 flex items-center justify-center p-3 md:p-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: 0.22 }}
     >
       {/* Backdrop */}
       <div
@@ -44,103 +74,120 @@ export default function MediaViewer({
         onClick={onClose}
       />
 
+      {/* Static card frame (open pop); content slides inside it */}
       <motion.div
-        className="relative z-10 flex max-h-full w-full max-w-6xl flex-col overflow-y-auto rounded-2xl border border-line bg-ink-2/90 shadow-2xl md:flex-row md:overflow-hidden"
-        initial={{ opacity: 0, scale: 0.96, y: 18 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 12 }}
+        className="relative z-10 h-full w-full max-w-6xl overflow-hidden rounded-2xl border border-line bg-ink-2/90 shadow-2xl md:h-auto md:max-h-full"
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.97, opacity: 0 }}
         transition={{ type: "spring", stiffness: 240, damping: 26 }}
       >
-        {/* Media stage */}
-        <div className="relative flex flex-1 items-center justify-center bg-black p-2 md:p-4">
-          <Media file={file} />
-        </div>
-
-        {/* Meta rail */}
-        <aside className="flex w-full shrink-0 flex-col gap-5 border-t border-line p-6 md:w-[320px] md:border-l md:border-t-0 md:p-8">
-          <div className="flex items-center justify-between gap-3">
-            <span className="rounded-full border border-gold/40 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-gold-soft">
-              {project.type}
-            </span>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="grid h-9 w-9 place-items-center rounded-full border border-line text-muted transition-colors hover:border-gold hover:text-gold"
-            >
-              <CloseIcon />
-            </button>
-          </div>
-
-          {trail.length > 0 && (
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
-              {trail.join("  ·  ")}
-            </p>
-          )}
-
-          <h2 className="font-display text-2xl font-bold leading-tight text-bone">
-            {project.title}
-          </h2>
-
-          {project.description && (
-            <p className="text-sm leading-relaxed text-muted">
-              {project.description}
-            </p>
-          )}
-
-          <a
-            href={project.media}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-auto inline-flex items-center gap-2 self-start rounded-full border border-line px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-bone/80 transition-colors hover:border-gold hover:text-gold"
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={file.project.id}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: "spring", stiffness: 320, damping: 34 },
+              opacity: { duration: 0.18 },
+            }}
+            drag={canSwipe ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.22}
+            onDragEnd={(_, info) => {
+              const threshold = 70;
+              if (info.offset.x <= -threshold) goNext();
+              else if (info.offset.x >= threshold) goPrev();
+            }}
+            className="absolute inset-0 flex touch-pan-y flex-col overflow-y-auto md:relative"
           >
-            Open original <ExternalIcon />
-          </a>
+            <MediaStage file={file} />
+            <Meta file={file} trail={trail} />
+          </motion.div>
+        </AnimatePresence>
 
-          <p className="truncate font-mono text-[10px] text-muted/70" title={urlPath}>
-            {urlPath}
-          </p>
-        </aside>
+        {/* Fixed controls — layered above the sliding content */}
+        <div className="pointer-events-none absolute inset-0 z-40">
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="pointer-events-auto absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full border border-line bg-ink/70 text-bone backdrop-blur transition-colors hover:border-gold hover:text-gold"
+          >
+            <CloseIcon />
+          </button>
+
+          {total > 1 && (
+            <span className="pointer-events-none absolute left-3 top-3 rounded-full border border-line bg-ink/70 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-bone backdrop-blur">
+              {index + 1} / {total}
+            </span>
+          )}
+
+          {canSwipe && (
+            <>
+              <EdgeButton side="left" onClick={goPrev} disabled={!onPrev} />
+              <EdgeButton side="right" onClick={goNext} disabled={!onNext} />
+            </>
+          )}
+        </div>
       </motion.div>
     </motion.div>
   );
 }
 
-function Media({ file }: { file: FileNode }) {
+function Meta({
+  file,
+  trail,
+}: {
+  file: FileNode;
+  trail: string[];
+}) {
   const { project } = file;
-
-  if (project.type === "video") {
-    return (
-      <video
-        key={project.id}
-        src={project.media}
-        controls
-        autoPlay
-        playsInline
-        className="max-h-[72vh] w-full rounded-lg object-contain"
-      />
-    );
-  }
-
-  if (project.type === "website") {
-    return (
-      <iframe
-        key={project.id}
-        src={project.media}
-        title={project.title}
-        className="h-[72vh] w-full rounded-lg border-0 bg-white"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-      />
-    );
-  }
-
-  /* image */
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      key={project.id}
-      src={project.media}
-      alt={project.title}
-      className="max-h-[72vh] w-full rounded-lg object-contain"
-    />
+    <aside className="flex shrink-0 flex-col gap-3 border-t border-line p-5">
+      <span className="w-fit rounded-full border border-gold/40 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-gold-soft">
+        {project.type}
+      </span>
+      {trail.length > 0 && (
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
+          {trail.join("  ·  ")}
+        </p>
+      )}
+      <h2 className="font-display text-xl font-bold leading-tight text-bone">
+        {project.title}
+      </h2>
+      {project.description && (
+        <p className="line-clamp-3 text-sm leading-relaxed text-muted">
+          {project.description}
+        </p>
+      )}
+    </aside>
+  );
+}
+
+function EdgeButton({
+  side,
+  onClick,
+  disabled,
+}: {
+  side: "left" | "right";
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={side === "left" ? "Previous" : "Next"}
+      className={`pointer-events-auto absolute top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-line bg-ink/70 text-bone backdrop-blur transition-opacity ${
+        side === "left" ? "left-2" : "right-2"
+      } ${disabled ? "pointer-events-none opacity-20" : "opacity-80 hover:opacity-100"}`}
+    >
+      <span className={side === "left" ? "rotate-180" : ""}>
+        <ChevronRight />
+      </span>
+    </button>
   );
 }

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Sora, JetBrains_Mono } from "next/font/google";
+import ProtectionProvider from "@/components/ui/ProtectionProvider";
+import { SITE, SOCIAL_LINKS } from "@/lib/site";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -24,9 +26,19 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zenkai Media — Our Work",
-  description:
-    "Our Work by Zenkai Media. Branding, AI UGC, performance creatives, video, web and digital marketing.",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: SITE.title,
+    template: `%s · ${SITE.name}`,
+  },
+  description: SITE.description,
+  applicationName: SITE.name,
+  keywords: [...SITE.keywords],
+  authors: [{ name: SITE.name, url: SITE.url }],
+  creator: SITE.name,
+  publisher: SITE.name,
+  category: "Creative Agency",
+  alternates: { canonical: "/" },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -36,11 +48,29 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
-  manifest: undefined,
   openGraph: {
-    title: "Zenkai Media — Our Work",
-    description: "Branding, AI UGC, performance creatives, video, web and digital marketing.",
     type: "website",
+    siteName: SITE.name,
+    title: SITE.title,
+    description: SITE.description,
+    url: SITE.url,
+    locale: SITE.locale,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE.title,
+    description: SITE.description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 
@@ -49,6 +79,38 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE.url}/#organization`,
+      name: SITE.name,
+      url: SITE.url,
+      logo: `${SITE.url}/android-chrome-512x512.png`,
+      description: SITE.description,
+      slogan: SITE.tagline,
+      sameAs: SOCIAL_LINKS,
+      knowsAbout: [...SITE.services],
+      areaServed: SITE.countries.map((name) => ({ "@type": "Country", name })),
+      address: SITE.cities.map((city) => ({
+        "@type": "PostalAddress",
+        addressLocality: city,
+        addressCountry: "IN",
+      })),
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE.url}/#website`,
+      url: SITE.url,
+      name: SITE.name,
+      description: SITE.description,
+      publisher: { "@id": `${SITE.url}/#organization` },
+      inLanguage: "en",
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -61,7 +123,14 @@ export default function RootLayout({
       lang="en"
       className={`${bricolage.variable} ${sora.variable} ${jetbrains.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <ProtectionProvider />
+        {children}
+      </body>
     </html>
   );
 }

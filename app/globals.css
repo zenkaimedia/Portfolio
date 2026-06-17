@@ -132,3 +132,10 @@ body::after {
 .hairline {
   background-image: linear-gradient(90deg, transparent, var(--color-line), transparent);
 }
+
+/* Media protection — prevent long-press save on iOS and drag-to-desktop */
+img, video {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}

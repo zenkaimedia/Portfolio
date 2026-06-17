@@ -1,10 +1,68 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchProjects } from "@/lib/supabase";
-import type { Project } from "@/lib/types";
+import { fetchProjects, fetchFolderOrder } from "@/lib/supabase";
+import { buildTree, resolvePath } from "@/lib/tree";
 import Browser from "@/components/Browser";
-import Logo from "@/components/Logo";
+import Logo from "@/components/ui/Logo";
+import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
+
+/** Cached per request so generateMetadata and the page share one DB round-trip. */
+const getWorkData = cache(async () => {
+  const [projects, folderOrder] = await Promise.all([
+    fetchProjects(),
+    fetchFolderOrder(),
+  ]);
+  return { projects, folderOrder };
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ path?: string[] }>;
+}): Promise<Metadata> {
+  const { path } = await params;
+  const slugs = (path ?? []).map((p) => decodeURIComponent(p));
+  const canonical = `${SITE.url}/work${slugs.length ? "/" + slugs.join("/") : ""}`;
+
+  let title: string = "Our Work";
+  let description: string = SITE.description;
+
+  try {
+    const { projects, folderOrder } = await getWorkData();
+    const tree = buildTree(projects, folderOrder);
+    const { chain, file } = resolvePath(tree, slugs);
+    const trail = chain.map((f) => f.name);
+
+    if (file) {
+      title = file.name;
+      description = file.project.description
+        ? file.project.description
+        : `${file.name}${trail.length ? ` — ${trail.join(" / ")}` : ""} · ${SITE.name}`;
+    } else if (trail.length) {
+      title = trail[trail.length - 1];
+      description = `${trail.join(" / ")} — work by ${SITE.name}. ${SITE.tagline}`;
+    } else {
+      description = `Selected work by ${SITE.name}. ${SITE.description}`;
+    }
+  } catch {
+    /* fall back to defaults */
+  }
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${title} · ${SITE.name}`,
+      description,
+      url: canonical,
+      type: "website",
+    },
+  };
+}
 
 export default async function WorkPage({
   params,
@@ -14,20 +72,19 @@ export default async function WorkPage({
   const { path } = await params;
   const initialPath = (path ?? []).map((p) => decodeURIComponent(p));
 
-  let projects: Project[] = [];
-  let errorMessage: string | null = null;
-
   try {
-    projects = await fetchProjects();
+    const { projects, folderOrder } = await getWorkData();
+    return (
+      <Browser
+        projects={projects}
+        initialPath={initialPath}
+        folderOrder={folderOrder}
+      />
+    );
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return <SetupNotice message={message} />;
   }
-
-  if (errorMessage) {
-    return <SetupNotice message={errorMessage} />;
-  }
-
-  return <Browser projects={projects} initialPath={initialPath} />;
 }
 
 function SetupNotice({ message }: { message: string }) {

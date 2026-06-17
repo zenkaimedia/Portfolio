@@ -28,7 +28,10 @@ function isFolder(n: TreeNode): n is FolderNode {
  *   category (folder) -> subcategory (folder, optional) -> project (file)
  * Projects with no subcategory become files directly under their category.
  */
-export function buildTree(projects: Project[]): FolderNode {
+export function buildTree(
+  projects: Project[],
+  folderOrder: Record<string, number> = {}
+): FolderNode {
   const root: FolderNode = {
     kind: "folder",
     name: "Our Work",
@@ -77,19 +80,38 @@ export function buildTree(projects: Project[]): FolderNode {
     }
   }
 
-  // Assign slugs + sort (folders first, then files; alpha within each group).
-  const finalize = (folder: FolderNode) => {
+  // Assign slugs + sort. Folders come first, ordered by folder_order (then
+  // name); files follow, ordered by sort_order (then title). pathPrefix builds
+  // the folder_order key: "AI" for a category, "AI/AI Commercials" for a sub.
+  const MAX = Number.MAX_SAFE_INTEGER;
+  const finalize = (folder: FolderNode, pathPrefix: string) => {
     folder.children.sort((a, b) => {
       if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+      if (a.kind === "folder" && b.kind === "folder") {
+        const keyA = pathPrefix ? `${pathPrefix}/${a.name}` : a.name;
+        const keyB = pathPrefix ? `${pathPrefix}/${b.name}` : b.name;
+        const pa = folderOrder[keyA] ?? MAX;
+        const pb = folderOrder[keyB] ?? MAX;
+        if (pa !== pb) return pa - pb;
+        return a.name.localeCompare(b.name);
+      }
+      // both files
+      const fa = a as FileNode;
+      const fb = b as FileNode;
+      const sa = fa.project.sort_order ?? 0;
+      const sb = fb.project.sort_order ?? 0;
+      if (sa !== sb) return sa - sb;
       return a.name.localeCompare(b.name);
     });
     const taken = new Set<string>();
     for (const child of folder.children) {
       child.slug = uniqueSlug(slugify(child.name), taken);
-      if (isFolder(child)) finalize(child);
+      if (isFolder(child)) {
+        finalize(child, pathPrefix ? `${pathPrefix}/${child.name}` : child.name);
+      }
     }
   };
-  finalize(root);
+  finalize(root, "");
 
   return root;
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
-import { logoutAction } from "@/app/admin/actions";
+import { logoutAction } from "@/app/(admin)/admin/actions";
 
 const links = [
   { href: "/admin", label: "+ Add", key: "add" },

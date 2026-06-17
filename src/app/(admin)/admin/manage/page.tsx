@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/adminAuth";
-import { fetchProjects, fetchFolderOrder } from "@/lib/supabase";
+import { isAuthed } from "@/lib/auth";
+import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import type { Project } from "@/lib/types";
 import AdminHeader from "@/components/AdminHeader";
 import ManagePanel from "./ManagePanel";

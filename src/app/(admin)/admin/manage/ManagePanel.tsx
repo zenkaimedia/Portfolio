@@ -107,7 +107,7 @@ export default function ManagePanel({
     const name = subcategory ?? category;
     setDialog({
       kind: "confirm",
-      title: `Delete “${name}”?`,
+      title: `Delete "${name}"?`,
       message: `This deletes the folder and all ${count} item(s) inside it, including their files. This cannot be undone.`,
       confirmLabel: "Delete folder",
       onConfirm: () => {
@@ -120,7 +120,7 @@ export default function ManagePanel({
   const deleteItem = (p: Project) => {
     setDialog({
       kind: "confirm",
-      title: `Delete “${p.title}”?`,
+      title: `Delete "${p.title}"?`,
       message: "This permanently deletes the item and its file. This cannot be undone.",
       confirmLabel: "Delete",
       onConfirm: () => {

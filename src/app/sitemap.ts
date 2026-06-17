@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { fetchProjects, fetchFolderOrder } from "@/lib/supabase";
+import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import { buildTree } from "@/lib/tree";
 import type { FolderNode } from "@/lib/types";
 import { SITE } from "@/lib/site";

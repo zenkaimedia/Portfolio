@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { slugify } from "@/lib/tree";
-import { supabaseBrowser, MEDIA_BUCKET } from "@/lib/supabaseBrowser";
+import { supabaseBrowser, MEDIA_BUCKET } from "@/lib/supabase/client";
 import { createSignedUploadUrlAction, createProjectAction } from "./actions";
 
 type Status =
@@ -102,7 +102,7 @@ export default function AdminForm({
         return;
       }
 
-      setStatus({ state: "ok", msg: `“${title}” added.` });
+      setStatus({ state: "ok", msg: `"${title}" added.` });
       // reset title / file / description; keep category + subcategory for batches
       formRef.current?.reset();
       if (fileRef.current) fileRef.current.value = "";

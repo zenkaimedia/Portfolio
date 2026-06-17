@@ -1,7 +1,7 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchProjects, fetchFolderOrder } from "@/lib/supabase";
+import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import { buildTree, resolvePath } from "@/lib/tree";
 import Browser from "@/components/Browser";
 import Logo from "@/components/ui/Logo";

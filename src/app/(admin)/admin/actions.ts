@@ -2,8 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ADMIN_COOKIE, adminToken, isAuthed } from "@/lib/adminAuth";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { ADMIN_COOKIE, adminToken, isAuthed } from "@/lib/auth";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
 
 /** Login form action — used with useActionState. Returns an error string or

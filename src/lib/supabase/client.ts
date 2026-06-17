@@ -10,4 +10,4 @@ export const supabaseBrowser = createClient(
   { auth: { persistSession: false } }
 );
 
-export { MEDIA_BUCKET } from "./constants";
+export { MEDIA_BUCKET } from "../constants";

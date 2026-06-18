@@ -267,29 +267,26 @@ function PdfViewer({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col bg-ink"
+      className="fixed inset-0 z-50 bg-ink"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
     >
-      {/* Header bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel/80 px-5 py-3 backdrop-blur">
-        <span className="truncate font-mono text-sm text-bone">{title}</span>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="ml-4 shrink-0 grid h-9 w-9 place-items-center rounded-full border border-line text-muted transition-colors hover:border-gold/50 hover:text-bone"
-        >
-          <CloseIcon />
-        </button>
-      </div>
+      {/* Floating close button */}
+      <button
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+      >
+        <CloseIcon />
+      </button>
 
-      {/* PDF iframe */}
+      {/* Full-screen PDF */}
       <iframe
         src={url}
         title={title}
-        className="flex-1 w-full border-none"
+        className="h-full w-full border-none"
       />
     </motion.div>
   );

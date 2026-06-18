@@ -25,18 +25,18 @@ export default async function SharePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-5 py-8 md:px-8 md:py-10">
-      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.3em] text-gold">
-        Admin
-      </p>
-      <h1 className="mb-2 font-display text-2xl font-bold text-bone sm:text-3xl">
-        Portfolio Sharing
-      </h1>
-      <p className="mb-10 text-sm leading-relaxed text-muted">
-        Copy any category link and share it directly with your clients.
-      </p>
+    <div className="flex h-full flex-col px-5 pt-8 md:px-8 md:pt-10">
+      <div className="shrink-0 pb-6">
+        <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.3em] text-gold">Admin</p>
+        <h1 className="mb-1 font-display text-2xl font-bold text-bone sm:text-3xl">Portfolio Sharing</h1>
+        <p className="text-sm leading-relaxed text-muted">
+          Copy any category link and share it directly with your clients.
+        </p>
+      </div>
 
-      <CopyLinkPanel categories={categories} />
+      <div className="flex min-h-0 flex-1 overflow-hidden pb-8">
+        <CopyLinkPanel categories={categories} />
+      </div>
     </div>
   );
 }

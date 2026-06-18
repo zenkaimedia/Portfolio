@@ -793,9 +793,37 @@ export default function ManagePanel({ projects: initial, categories, subcategori
   folderOrder: Record<string, number>;
 }) {
   const [projects, setProjects] = useState(initial);
-  const [nav, setNav] = useState<NavState>({ level: "folders" });
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [clipboard, setClipboard] = useState<ClipboardState>(null);
+
+  // Derive initial nav from current URL
+  const [nav, setNav] = useState<NavState>(() => {
+    if (typeof window === "undefined") return { level: "folders" };
+    const match = window.location.pathname.match(/^\/admin\/manage\/(.+)$/);
+    return match
+      ? { level: "items", category: decodeURIComponent(match[1]) }
+      : { level: "folders" };
+  });
+
+  // Sync URL when nav changes
+  function goToFolder(category: string) {
+    window.history.pushState({}, "", `/admin/manage/${encodeURIComponent(category)}`);
+    setNav({ level: "items", category });
+  }
+  function goBack() {
+    window.history.pushState({}, "", "/admin/manage");
+    setNav({ level: "folders" });
+  }
+
+  // Browser back/forward button support
+  useEffect(() => {
+    const onPop = () => {
+      const match = window.location.pathname.match(/^\/admin\/manage\/(.+)$/);
+      setNav(match ? { level: "items", category: decodeURIComponent(match[1]) } : { level: "folders" });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   async function handlePasteInto(targetCategory: string) {
     if (!clipboard) return;
@@ -836,7 +864,7 @@ export default function ManagePanel({ projects: initial, categories, subcategori
       {nav.level === "folders" ? (
         <FolderView
           projects={projects} folderOrder={folderOrder} viewMode={viewMode} clipboard={clipboard}
-          onNavigate={(cat) => setNav({ level: "items", category: cat })}
+          onNavigate={goToFolder}
           onProjectsChange={setProjects}
           onPasteInto={handlePasteInto}
           onClearClipboard={() => setClipboard(null)}
@@ -844,7 +872,7 @@ export default function ManagePanel({ projects: initial, categories, subcategori
       ) : (
         <FolderContents
           projects={projects} category={nav.category} viewMode={viewMode} clipboard={clipboard}
-          onBack={() => setNav({ level: "folders" })}
+          onBack={goBack}
           onProjectsChange={setProjects}
           onSetClipboard={setClipboard}
           onClearClipboard={() => setClipboard(null)}

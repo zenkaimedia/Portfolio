@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function MessagesPage() {
   if (!(await isAuthed())) redirect("/admin/login");
 
-  let templates = [];
+  let templates: Awaited<ReturnType<typeof fetchTemplates>> = [];
   try {
     templates = await fetchTemplates();
   } catch {

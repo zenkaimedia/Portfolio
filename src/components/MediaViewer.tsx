@@ -8,7 +8,7 @@ import { transformImage } from "@/lib/image";
 import { screenshotUrl } from "@/lib/screenshot";
 
 const WATERMARK_TILE =
-  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='280'%20height='180'%3E%3Ctext%20x='140'%20y='95'%20fill='%23ffffff'%20fill-opacity='0.08'%20font-family='monospace'%20font-size='17'%20font-weight='700'%20letter-spacing='2'%20text-anchor='middle'%20transform='rotate(-28%20140%2095)'%3EZENKAI%20MEDIA%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='140'%3E%3Ctext%20x='110'%20y='75'%20fill='%23ffffff'%20fill-opacity='0.14'%20font-family='monospace'%20font-size='15'%20font-weight='700'%20letter-spacing='2'%20text-anchor='middle'%20transform='rotate(-28%20110%2075)'%3EZENKAI%20MEDIA%3C/text%3E%3C/svg%3E";
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? "50%" : "-50%", opacity: 0 }),

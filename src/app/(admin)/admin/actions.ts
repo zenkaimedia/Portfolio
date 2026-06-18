@@ -162,6 +162,22 @@ export async function updateProjectAction(input: {
   return { ok: true };
 }
 
+/** Delete multiple projects at once (rows + their stored files). */
+export async function bulkDeleteProjectsAction(
+  items: { id: string; media: string }[]
+): Promise<{ ok: true; deleted: number } | { error: string }> {
+  if (!(await isAuthed())) return { error: "Unauthorized." };
+  if (!items.length) return { ok: true, deleted: 0 };
+  await removeFiles(items.map((i) => i.media));
+  const ids = items.map((i) => i.id);
+  const { error } = await getSupabaseAdmin()
+    .from("projects")
+    .delete()
+    .in("id", ids);
+  if (error) return { error: error.message };
+  return { ok: true, deleted: ids.length };
+}
+
 /** Delete one project (row + its stored file). */
 export async function deleteProjectAction(
   id: string,

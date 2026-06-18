@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import { buildTree, flattenFiles, resolvePath } from "@/lib/tree";
@@ -22,19 +22,24 @@ export default async function PortfolioPage({
       fetchFolderOrder(),
     ]);
 
-    // If visiting a category URL (/[slug]) and that category has a PDF, redirect to the PDF directly.
-    if (initialPath.length === 1) {
-      const tree = buildTree(projects, folderOrder);
-      const { chain } = resolvePath(tree, initialPath);
-      if (chain.length === 1) {
-        const flat = flattenFiles(tree);
-        const pdf = flat.find(
-          (f) =>
-            f.file.project.category === chain[0].name &&
-            f.file.project.type === "pdf"
-        );
-        if (pdf) redirect(pdf.file.project.media);
-      }
+    const tree = buildTree(projects, folderOrder);
+    const { chain, file } = resolvePath(tree, initialPath);
+
+    // PDF redirect: single-segment category URL whose category contains a PDF
+    if (initialPath.length === 1 && chain.length === 1) {
+      const flat = flattenFiles(tree);
+      const pdf = flat.find(
+        (f) =>
+          f.file.project.category === chain[0].name &&
+          f.file.project.type === "pdf"
+      );
+      if (pdf) redirect(pdf.file.project.media);
+    }
+
+    // If the path doesn't match any category or item in the tree, return 404.
+    // This blocks /work, /work/anything, and any other invalid URL.
+    if (chain.length === 0 && file === null) {
+      notFound();
     }
 
     return (

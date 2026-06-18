@@ -72,6 +72,30 @@ export function CloseIcon() {
   );
 }
 
+export function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function LayersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
+export function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  );
+}
+
 export function SunIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" {...base}>

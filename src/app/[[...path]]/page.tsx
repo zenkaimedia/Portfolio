@@ -5,7 +5,7 @@ import Logo from "@/components/ui/Logo";
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkPage({
+export default async function PortfolioPage({
   params,
 }: {
   params: Promise<{ path?: string[] }>;
@@ -37,7 +37,7 @@ function SetupNotice({ message }: { message: string }) {
       <Logo className="mb-10 h-8" />
       <div className="max-w-lg rounded-2xl border border-line bg-panel/60 p-8 backdrop-blur">
         <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.3em] text-ember">
-          Our Work offline
+          Portfolio offline
         </p>
         <h1 className="mb-4 font-display text-2xl font-bold text-bone">
           Connect Supabase to continue
@@ -45,16 +45,16 @@ function SetupNotice({ message }: { message: string }) {
         <p className="mb-6 text-sm leading-relaxed text-muted">{message}</p>
         <ol className="space-y-2 text-left font-mono text-xs leading-relaxed text-bone/70">
           <li>1 — copy <span className="text-gold">.env.local.example</span> to <span className="text-gold">.env.local</span></li>
-          <li>2 — fill in your project URL + anon key</li>
+          <li>2 — fill in your Supabase URL + anon key</li>
           <li>3 — run the SQL in <span className="text-gold">supabase/schema.sql</span></li>
           <li>4 — restart <span className="text-gold">npm run dev</span></li>
         </ol>
       </div>
       <Link
-        href="/"
+        href="/admin"
         className="mt-8 font-mono text-[11px] uppercase tracking-[0.25em] text-muted transition-colors hover:text-gold"
       >
-        ← back home
+        → Admin
       </Link>
     </main>
   );

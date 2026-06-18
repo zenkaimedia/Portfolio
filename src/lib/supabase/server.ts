@@ -21,7 +21,7 @@ export function getSupabase() {
 }
 
 const BASE_COLUMNS =
-  "id, title, category, subcategory, type, media, description, created_at, updated_at";
+  "id, title, category, subcategory, type, media, description, created_at, updated_at, parent_id";
 
 export async function fetchProjects(): Promise<Project[]> {
   const supabase = getSupabase();

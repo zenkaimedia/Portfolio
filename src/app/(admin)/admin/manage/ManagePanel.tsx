@@ -397,6 +397,12 @@ function ItemCard({ project, isDragging, overSide, isSelected, isCut,
           {isSelected && "✓"}
         </span>
       </div>
+      {/* Copy badge */}
+      {project.parent_id && (
+        <span className="absolute bottom-1.5 right-1.5 z-10 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted/80 backdrop-blur">
+          copy
+        </span>
+      )}
       {/* Hover overlay */}
       <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100">
         <p className="truncate px-3 pb-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white">{project.title}</p>
@@ -427,6 +433,7 @@ function ItemRow({ project, isDragging, overSide, isSelected, isCut,
         {project.type === "image" ? <img src={transformImage(project.media, 80, 70)} alt="" loading="lazy" className="h-full w-full object-cover" /> : <span className="font-mono text-[7px] uppercase text-muted">{project.type.slice(0, 3).toUpperCase()}</span>}
       </span>
       <span className="flex-1 truncate text-sm text-bone">{project.title}</span>
+      {project.parent_id && <span className="hidden rounded-full border border-line bg-ink px-2 py-0.5 font-mono text-[9px] uppercase text-muted/60 sm:inline">copy</span>}
       {project.subcategory && <span className="hidden rounded-full border border-line px-2 py-0.5 font-mono text-[9px] text-muted sm:inline">{project.subcategory}</span>}
       <span className="hidden font-mono text-[9px] uppercase text-muted/60 md:block">{project.type}</span>
     </div>
@@ -904,6 +911,10 @@ export default function ManagePanel({ projects: initial, categories, subcategori
 }) {
   const [projects, setProjects] = useState(initial);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  // Keep local state in sync when the server refreshes data
+  // (only applies on initial mount and hard navigations, not in-panel moves)
+  useEffect(() => { setProjects(initial); }, [initial]);
   const [clipboard, setClipboard] = useState<ClipboardState>(null);
 
   // Derive initial nav from current URL

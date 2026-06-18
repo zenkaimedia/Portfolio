@@ -201,12 +201,18 @@ export async function copyItemsAction(
   const supabase = getSupabaseAdmin();
   const { data: src, error: fetchErr } = await supabase
     .from("projects")
-    .select("title, type, media, description")
+    .select("id, title, type, media, description, parent_id")
     .in("id", ids);
   if (fetchErr) return { error: fetchErr.message };
   const copies = (src ?? []).map((p) => ({
-    title: p.title, category: targetCategory, subcategory: null,
-    type: p.type, media: p.media, description: p.description,
+    title: p.title,
+    category: targetCategory,
+    subcategory: null,
+    type: p.type,
+    media: p.media,
+    description: p.description,
+    // Track lineage: if the source is already a copy, point to its parent; otherwise point to the source itself
+    parent_id: p.parent_id ?? p.id,
   }));
   const { data, error } = await supabase.from("projects").insert(copies).select();
   if (error) return { error: error.message };

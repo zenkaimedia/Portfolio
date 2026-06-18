@@ -11,6 +11,7 @@ export interface Project {
   sort_order: number;
   created_at: string | null;
   updated_at: string | null;
+  parent_id: string | null;
 }
 
 export type FolderNode = {

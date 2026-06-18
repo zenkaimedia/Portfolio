@@ -35,6 +35,9 @@ alter table public.projects drop column if exists thumbnail;
 -- existing rows keep their current (alphabetical) order until you drag them.
 alter table public.projects add column if not exists sort_order integer not null default 0;
 
+-- parent_id tracks copy lineage: if set, this row is a copy of the referenced project.
+alter table public.projects add column if not exists parent_id uuid references public.projects(id) on delete set null;
+
 create index if not exists idx_projects_category on public.projects using btree (category);
 create index if not exists idx_projects_subcategory on public.projects using btree (subcategory);
 

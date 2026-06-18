@@ -31,9 +31,13 @@ export default function MediaViewer({
   total?: number;
 }) {
   const [direction, setDirection] = useState(0);
+  const [scale, setScale] = useState(1);
   const canSwipe = total > 1;
+  const isZoomed = scale > 1;
 
-  // Swipe-down-to-close (mobile)
+  // Reset zoom when image changes
+  useEffect(() => { setScale(1); }, [file.project.id]);
+
   const touchStartY = useRef<number | null>(null);
   const touchStartX = useRef<number | null>(null);
 
@@ -42,31 +46,28 @@ export default function MediaViewer({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") goPrev();
-      else if (e.key === "ArrowRight") goNext();
+      if (e.key === "Escape") { if (isZoomed) setScale(1); else onClose(); }
+      else if (!isZoomed && e.key === "ArrowLeft") goPrev();
+      else if (!isZoomed && e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, onPrev, onNext]);
+  }, [onClose, onPrev, onNext, isZoomed]);
 
   function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return;
     touchStartY.current = e.touches[0].clientY;
     touchStartX.current = e.touches[0].clientX;
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartY.current === null || touchStartX.current === null) return;
+    if (isZoomed || touchStartY.current === null || touchStartX.current === null) return;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
     const dx = Math.abs(e.changedTouches[0].clientX - touchStartX.current);
     touchStartY.current = null;
     touchStartX.current = null;
-    // Close only when swipe is clearly downward (more vertical than horizontal)
     if (dy > 100 && dy > dx) onClose();
   }
 
@@ -77,20 +78,26 @@ export default function MediaViewer({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      onClick={onClose}
+      onClick={isZoomed ? undefined : onClose}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* Close button */}
       <button
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onClick={(e) => { e.stopPropagation(); isZoomed ? setScale(1) : onClose(); }}
         aria-label="Close"
         className="absolute right-4 top-4 z-50 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
       >
         <CloseIcon />
       </button>
 
-      {/* Sliding media — no onClick here so empty-area clicks reach the backdrop */}
+      {/* Zoom level badge */}
+      {isZoomed && (
+        <div className="absolute left-4 top-4 z-50 rounded-full bg-white/10 px-3 py-1.5 font-mono text-[11px] text-white/70 backdrop-blur">
+          {scale.toFixed(1)}×
+        </div>
+      )}
+
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
           key={file.project.id}
@@ -103,7 +110,7 @@ export default function MediaViewer({
             x: { type: "spring", stiffness: 300, damping: 32 },
             opacity: { duration: 0.15 },
           }}
-          drag={canSwipe ? "x" : false}
+          drag={!isZoomed && canSwipe ? "x" : false}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.18}
           onDragEnd={(_, info) => {
@@ -112,15 +119,17 @@ export default function MediaViewer({
           }}
           className="absolute inset-0 flex items-center justify-center px-3 py-16 md:px-20 md:py-12"
         >
-          {/* Only the media itself stops propagation — empty padding area stays clickable to close */}
           <div onClick={(e) => e.stopPropagation()}>
-            <MediaContent file={file} />
+            <MediaContent
+              file={file}
+              scale={scale}
+              onScaleChange={setScale}
+            />
           </div>
         </motion.div>
       </AnimatePresence>
 
-      {/* Side arrows */}
-      {canSwipe && (
+      {!isZoomed && canSwipe && (
         <>
           <NavArrow side="left" onClick={goPrev} disabled={!onPrev} />
           <NavArrow side="right" onClick={goNext} disabled={!onNext} />
@@ -130,7 +139,16 @@ export default function MediaViewer({
   );
 }
 
-function MediaContent({ file }: { file: FileNode }) {
+/* ── Media content ────────────────────────────────────────────────────────── */
+function MediaContent({
+  file,
+  scale,
+  onScaleChange,
+}: {
+  file: FileNode;
+  scale: number;
+  onScaleChange: (s: number) => void;
+}) {
   const { project } = file;
 
   if (project.type === "video") {
@@ -176,12 +194,75 @@ function MediaContent({ file }: { file: FileNode }) {
   }
 
   return (
-    <div
+    <ZoomableImage
+      project={project}
+      scale={scale}
+      onScaleChange={onScaleChange}
+    />
+  );
+}
+
+/* ── Zoomable image ───────────────────────────────────────────────────────── */
+function ZoomableImage({
+  project,
+  scale,
+  onScaleChange,
+}: {
+  project: FileNode["project"];
+  scale: number;
+  onScaleChange: (s: number) => void;
+}) {
+  const isZoomed = scale > 1;
+  const pinchRef = useRef<{ dist: number; startScale: number } | null>(null);
+
+  function clamp(val: number) { return Math.max(1, Math.min(5, val)); }
+
+  function handleDoubleClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    onScaleChange(isZoomed ? 1 : 2.5);
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    e.stopPropagation();
+    onScaleChange(clamp(scale * (1 - e.deltaY / 400)));
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length !== 2) return;
+    e.stopPropagation();
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    if (!pinchRef.current) {
+      pinchRef.current = { dist, startScale: scale };
+      return;
+    }
+    onScaleChange(clamp(pinchRef.current.startScale * (dist / pinchRef.current.dist)));
+  }
+
+  function handleTouchEnd() { pinchRef.current = null; }
+
+  return (
+    <motion.div
       data-protected
-      className="relative select-none"
+      drag={isZoomed}
+      dragMomentum={false}
+      dragElastic={0.05}
+      animate={!isZoomed ? { x: 0, y: 0 } : {}}
+      transition={{ type: "spring", stiffness: 400, damping: 35 }}
+      onDoubleClick={handleDoubleClick}
+      onWheel={handleWheel}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       onContextMenu={(e) => e.preventDefault()}
+      className="relative select-none"
+      style={{
+        scale,
+        cursor: isZoomed ? "grab" : "zoom-in",
+      }}
     >
-      <div className="absolute inset-0 z-10" onContextMenu={(e) => e.preventDefault()} />
+      <div className="absolute inset-0 z-10 pointer-events-none" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         key={project.id}
@@ -194,15 +275,13 @@ function MediaContent({ file }: { file: FileNode }) {
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-20 select-none rounded-xl"
-        style={{
-          backgroundImage: `url("${WATERMARK_TILE}")`,
-          backgroundRepeat: "repeat",
-        }}
+        style={{ backgroundImage: `url("${WATERMARK_TILE}")`, backgroundRepeat: "repeat" }}
       />
-    </div>
+    </motion.div>
   );
 }
 
+/* ── Nav arrow ────────────────────────────────────────────────────────────── */
 function NavArrow({
   side,
   onClick,

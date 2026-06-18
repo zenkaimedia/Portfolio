@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { slugify } from "@/lib/tree";
 import { supabaseBrowser, MEDIA_BUCKET } from "@/lib/supabase/client";
-import { createSignedUploadUrlAction, createProjectAction } from "./actions";
+import { createSignedUploadUrlAction, createProjectAction, checkPdfExistsAction } from "./actions";
 
 type Status =
   | { state: "idle" }
@@ -86,10 +86,23 @@ export default function AdminForm({
           return;
         }
 
-        // Single file needs a user-supplied title; multi-file derives from filename.
         if (!isMulti && !title) {
           setStatus({ state: "error", msg: "Title is required." });
           return;
+        }
+
+        // PDF pre-flight: check BEFORE any upload happens
+        if (type === "pdf") {
+          setStatus({ state: "busy", msg: "Checking category…" });
+          const check = await checkPdfExistsAction(category);
+          if ("error" in check) {
+            setStatus({ state: "error", msg: check.error });
+            return;
+          }
+          if (check.exists) {
+            setStatus({ state: "error", msg: `"${category}" already has a PDF. Only one PDF allowed per category.` });
+            return;
+          }
         }
 
         for (let i = 0; i < selectedFiles.length; i++) {

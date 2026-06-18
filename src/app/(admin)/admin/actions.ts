@@ -36,6 +36,20 @@ export async function logoutAction() {
   redirect("/admin/login");
 }
 
+/** Check whether a category already has a PDF — call this BEFORE uploading. */
+export async function checkPdfExistsAction(
+  category: string
+): Promise<{ exists: boolean } | { error: string }> {
+  if (!(await isAuthed())) return { error: "Unauthorized." };
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("category", category)
+    .eq("type", "pdf");
+  return { exists: !!(data && data.length > 0) };
+}
+
 /** Create a one-time signed URL so the browser can upload a file directly to
  *  Storage (bypassing Vercel's request-body size limit). */
 export async function createSignedUploadUrlAction(

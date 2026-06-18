@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import { buildTree, flattenFiles, resolvePath } from "@/lib/tree";
 import Browser from "@/components/Browser";
@@ -45,6 +46,7 @@ export default async function PortfolioPage({
       />
     );
   } catch (err) {
+    if (isRedirectError(err)) throw err;
     const message = err instanceof Error ? err.message : "Unknown error";
     return <SetupNotice message={message} />;
   }

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(mkdir -p \"d:/Claude Code/zenkai-media/src/app/work/[[...path]]\")",
+      "Bash(cp \"d:/Claude Code/zenkai-media/src/app/[[...path]]/page.tsx\" \"d:/Claude Code/zenkai-media/src/app/work/[[...path]]/page.tsx\")",
+      "Bash(rm -rf \"d:/Claude Code/zenkai-media/src/app/[[...path]]\")"
     ]
   }
 }

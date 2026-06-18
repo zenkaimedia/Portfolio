@@ -38,7 +38,7 @@ export default function Browser({
   // ── URL sync ──────────────────────────────────────────────────────────────
   const navigate = useCallback((slugs: string[], replace = false) => {
     setPath(slugs);
-    const url = slugs.length ? "/" + slugs.map(encodeURIComponent).join("/") : "/";
+    const url = "/work" + (slugs.length ? "/" + slugs.map(encodeURIComponent).join("/") : "");
     if (replace) window.history.replaceState({}, "", url);
     else window.history.pushState({}, "", url);
   }, []);
@@ -46,7 +46,7 @@ export default function Browser({
   useEffect(() => {
     const onPop = () => {
       const parts = window.location.pathname
-        .replace(/^\//, "")
+        .replace(/^\/work\/?/, "")
         .split("/")
         .filter(Boolean)
         .map((p) => decodeURIComponent(p));

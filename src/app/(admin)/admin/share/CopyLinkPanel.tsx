@@ -140,7 +140,7 @@ export default function CopyLinkPanel({
               <SidebarItem
                 key={cat.slug}
                 category={cat}
-                url={origin ? `${origin}/work/${cat.slug}` : ""}
+                url={origin ? `${origin}/${cat.slug}` : ""}
                 selected={selectedSlug === cat.slug}
                 onClick={() => scrollTo(cat.slug)}
               />
@@ -172,7 +172,7 @@ export default function CopyLinkPanel({
               <CategoryCard
                 key={cat.slug}
                 category={cat}
-                path={`/work/${cat.slug}`}
+                path={`/${cat.slug}`}
               />
             ))
           )}

@@ -66,6 +66,46 @@ function useDrag<T>(
   return { dragging, over, handleStart, handleOver, handleDrop, handleEnd };
 }
 
+/* ── Auto-scroll during drag ─────────────────────────────────────────────── */
+function useAutoScroll(ref: React.RefObject<HTMLElement | null>, active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const EDGE = 80;    // px from edge to start scrolling
+    const MAX = 16;     // max px per frame
+    let dir = 0;
+    let speed = 0;
+    let frame: number;
+
+    function onDragOver(e: DragEvent) {
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (e.clientY < rect.top + EDGE) {
+        dir = -1;
+        speed = Math.round(MAX * (1 - (e.clientY - rect.top) / EDGE));
+      } else if (e.clientY > rect.bottom - EDGE) {
+        dir = 1;
+        speed = Math.round(MAX * (1 - (rect.bottom - e.clientY) / EDGE));
+      } else {
+        dir = 0;
+        speed = 0;
+      }
+    }
+
+    function tick() {
+      if (dir !== 0 && ref.current) ref.current.scrollTop += dir * speed;
+      frame = requestAnimationFrame(tick);
+    }
+
+    document.addEventListener("dragover", onDragOver);
+    frame = requestAnimationFrame(tick);
+    return () => {
+      document.removeEventListener("dragover", onDragOver);
+      cancelAnimationFrame(frame);
+    };
+  }, [active, ref]);
+}
+
 /* ── Insert bar ──────────────────────────────────────────────────────────── */
 function InsertBar({ side, axis }: { side: "before" | "after"; axis: "x" | "y" }) {
   const h = axis === "x";
@@ -340,12 +380,14 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   const [localFolders, setLocalFolders] = useState<string[]>([]);
   const allFolders = [...folders, ...localFolders.filter((f) => !folders.includes(f))];
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useDrag(folders, (f) => f, async (next) => {
     setFolders(next);
     const res = await reorderFoldersAction(next);
     if ("error" in res) setMsg(res.error);
     else startTransition(() => router.refresh());
   }, viewMode === "list" ? "y" : "x");
+  useAutoScroll(scrollRef, drag.dragging !== null);
 
   function openCtx(e: React.MouseEvent, target: CtxTarget) {
     e.preventDefault(); e.stopPropagation();
@@ -389,7 +431,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
 
   if (viewMode === "grid") {
     return (
-      <div className="flex-1 overflow-y-auto" onContextMenu={(e) => { if (e.target === e.currentTarget) openCtx(e, { kind: "bg" }); }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto" onContextMenu={(e) => { if (e.target === e.currentTarget) openCtx(e, { kind: "bg" }); }}>
         {msg && <p className="mb-3 font-mono text-xs text-ember">{msg}</p>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
           {allFolders.map((cat) =>
@@ -425,7 +467,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   }
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-2" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
+    <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
       {msg && <p className="font-mono text-xs text-ember">{msg}</p>}
       {newFolder && (
         <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-gold/40 bg-ink-2/40 px-4 py-3">
@@ -483,12 +525,14 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [moveToOpen, setMoveToOpen] = useState(false);
 
+  const itemScrollRef = useRef<HTMLDivElement>(null);
   const drag = useDrag(items, (p) => p.id, async (next) => {
     setItems(next);
     const res = await reorderItemsAction(next.map((p) => p.id));
     if ("error" in res) setMsg(res.error);
     else startTransition(() => router.refresh());
   }, viewMode === "list" ? "y" : "x");
+  useAutoScroll(itemScrollRef, drag.dragging !== null);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -656,7 +700,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
       {items.length === 0 && !clipboard && <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Empty folder. {clipboard ? "Right-click to paste." : ""}</p>}
 
       {viewMode === "grid" ? (
-        <div className="flex-1 overflow-y-auto">
+        <div ref={itemScrollRef} className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {items.map((p) => (
               <motion.div key={p.id} layout transition={{ type: "spring", stiffness: 500, damping: 40 }}>
@@ -678,7 +722,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto rounded-2xl border border-line">
+        <div ref={itemScrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-line">
           {items.map((p) => (
             <motion.div key={p.id} layout transition={{ type: "spring", stiffness: 500, damping: 40 }}>
               <div data-item>

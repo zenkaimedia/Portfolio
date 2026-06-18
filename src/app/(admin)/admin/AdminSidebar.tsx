@@ -8,11 +8,10 @@ import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, SettingsIcon, LogoutIcon, 
 import { logoutAction } from "./actions";
 
 const NAV = [
-  { href: "/admin",           label: "Add Project",       icon: PlusIcon,      exact: true },
-  { href: "/admin/manage",    label: "Manage",             icon: LayersIcon,    exact: false },
-  { href: "/admin/share",     label: "Portfolio Sharing",  icon: LinkIcon,      exact: false },
-  { href: "/admin/messages",  label: "Message Templates",  icon: MessageIcon,   exact: false },
-  { href: "/admin/settings",  label: "Settings",           icon: SettingsIcon,  exact: false },
+  { href: "/admin",           label: "Add Project",       icon: PlusIcon,     exact: true },
+  { href: "/admin/manage",    label: "Manage",             icon: LayersIcon,   exact: false },
+  { href: "/admin/share",     label: "Portfolio Sharing",  icon: LinkIcon,     exact: false },
+  { href: "/admin/messages",  label: "Message Templates",  icon: MessageIcon,  exact: false },
 ] as const;
 
 export default function AdminSidebar() {
@@ -54,7 +53,17 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Bottom actions */}
-      <div className="border-t border-line p-3">
+      <div className="border-t border-line p-3 space-y-1">
+        <Link
+          href="/admin/settings"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
+            pathname.startsWith("/admin/settings") ? "bg-gold/15 text-gold" : "text-muted hover:bg-white/5 hover:text-bone"
+          }`}
+        >
+          <SettingsIcon />
+          Settings
+        </Link>
         <form action={logoutAction}>
           <button
             type="submit"

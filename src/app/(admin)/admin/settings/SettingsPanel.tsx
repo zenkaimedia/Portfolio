@@ -53,30 +53,6 @@ function ThemeCard({
   );
 }
 
-/* ── Toggle row ──────────────────────────────────────────────────────────── */
-function ToggleRow({
-  label, description, checked, onChange,
-}: { label: string; description?: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-ink-2/40 px-5 py-4">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-bone">{label}</p>
-        {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
-      </div>
-      <button
-        onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-gold" : "bg-line"}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-5" : "translate-x-0.5"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
 /* ── Info row ────────────────────────────────────────────────────────────── */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -90,30 +66,16 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 /* ── Main panel ──────────────────────────────────────────────────────────── */
 export default function SettingsPanel() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [watermark, setWatermark] = useState(true);
-  const [smoothAnimation, setSmoothAnimation] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem("zk-theme") as "light" | "dark" | null;
     setTheme(stored ?? (document.documentElement.classList.contains("light") ? "light" : "dark"));
-    setWatermark(localStorage.getItem("zk-watermark") !== "false");
-    setSmoothAnimation(localStorage.getItem("zk-animation") !== "false");
   }, []);
 
   function applyTheme(mode: "light" | "dark") {
     setTheme(mode);
     localStorage.setItem("zk-theme", mode);
     document.documentElement.classList.toggle("light", mode === "light");
-  }
-
-  function toggleWatermark(val: boolean) {
-    setWatermark(val);
-    localStorage.setItem("zk-watermark", String(val));
-  }
-
-  function toggleAnimation(val: boolean) {
-    setSmoothAnimation(val);
-    localStorage.setItem("zk-animation", String(val));
   }
 
   return (
@@ -124,26 +86,6 @@ export default function SettingsPanel() {
         <div className="grid grid-cols-2 gap-3">
           <ThemeCard mode="light" current={theme} onSelect={() => applyTheme("light")} />
           <ThemeCard mode="dark" current={theme} onSelect={() => applyTheme("dark")} />
-        </div>
-      </Section>
-
-      <div className="hairline h-px w-full" />
-
-      {/* Portfolio */}
-      <Section title="Portfolio" description="Settings that affect how your portfolio is displayed to clients.">
-        <div className="space-y-3">
-          <ToggleRow
-            label="Image Watermark"
-            description="Show ZENKAI MEDIA watermark over images in the viewer."
-            checked={watermark}
-            onChange={toggleWatermark}
-          />
-          <ToggleRow
-            label="Smooth Animations"
-            description="Enable entrance and transition animations across the portfolio."
-            checked={smoothAnimation}
-            onChange={toggleAnimation}
-          />
         </div>
       </Section>
 

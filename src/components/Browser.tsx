@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
@@ -34,6 +35,7 @@ export default function Browser({
 
   const [path, setPath] = useState<string[]>(initialPath);
   const [pdfFile, setPdfFile] = useState<{ url: string; title: string } | null>(null);
+  const autoOpenedCat = useRef<string | null>(null);
 
   const { chain, file } = useMemo(() => resolvePath(tree, path), [tree, path]);
 
@@ -46,6 +48,17 @@ export default function Browser({
         : flat,
     [flat, selectedCategory]
   );
+
+  // ── Auto-open PDF when a category URL is loaded directly ─────────────────
+  useEffect(() => {
+    if (!selectedCategory) return;
+    if (autoOpenedCat.current === selectedCategory.name) return;
+    const pdf = visibleItems.find((f) => f.file.project.type === "pdf");
+    if (pdf) {
+      autoOpenedCat.current = selectedCategory.name;
+      setPdfFile({ url: pdf.file.project.media, title: pdf.file.project.title });
+    }
+  }, [selectedCategory?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URL sync ──────────────────────────────────────────────────────────────
   const navigate = useCallback((slugs: string[], replace = false) => {

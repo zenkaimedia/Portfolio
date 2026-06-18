@@ -162,7 +162,7 @@ export default function AdminForm({
         </Field>
       )}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-5 ${type !== "pdf" ? "sm:grid-cols-2" : ""}`}>
         <Field label="Category (top folder)">
           <input
             name="category"
@@ -178,19 +178,21 @@ export default function AdminForm({
           </datalist>
         </Field>
 
-        <Field label="Subcategory (optional)">
-          <input
-            name="subcategory"
-            list="subs"
-            className={inputCls}
-            placeholder="AI Commercials"
-          />
-          <datalist id="subs">
-            {subcategories.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </Field>
+        {type !== "pdf" && (
+          <Field label="Subcategory (optional)">
+            <input
+              name="subcategory"
+              list="subs"
+              className={inputCls}
+              placeholder="AI Commercials"
+            />
+            <datalist id="subs">
+              {subcategories.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </Field>
+        )}
       </div>
 
       <Field label="Type">

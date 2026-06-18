@@ -75,6 +75,19 @@ export async function createProjectAction(input: {
   }
 
   const supabase = getSupabaseAdmin();
+
+  // Only one PDF allowed per category
+  if (type === "pdf") {
+    const { data: existing } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("category", category)
+      .eq("type", "pdf");
+    if (existing && existing.length > 0) {
+      return { error: `"${category}" already has a PDF. Only one PDF is allowed per category.` };
+    }
+  }
+
   const { error } = await supabase.from("projects").insert({
     title,
     category,

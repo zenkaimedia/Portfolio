@@ -1,11 +1,28 @@
 import { redirect } from "next/navigation";
 import { isAuthed } from "@/lib/auth";
+import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
+import { buildTree } from "@/lib/tree";
 import CopyLinkPanel from "./CopyLinkPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function SharePage() {
   if (!(await isAuthed())) redirect("/admin/login");
+
+  let categories: { name: string; slug: string }[] = [];
+
+  try {
+    const [projects, folderOrder] = await Promise.all([
+      fetchProjects(),
+      fetchFolderOrder(),
+    ]);
+    const tree = buildTree(projects, folderOrder);
+    categories = tree.children
+      .filter((c) => c.kind === "folder")
+      .map((c) => ({ name: c.name, slug: c.slug }));
+  } catch {
+    /* no data yet */
+  }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-8 md:px-8 md:py-10">
@@ -16,10 +33,10 @@ export default async function SharePage() {
         Portfolio Sharing
       </h1>
       <p className="mb-10 text-sm leading-relaxed text-muted">
-        Copy the link below and share it with your clients to showcase your portfolio.
+        Copy any category link and share it directly with your clients.
       </p>
 
-      <CopyLinkPanel />
+      <CopyLinkPanel categories={categories} />
     </div>
   );
 }

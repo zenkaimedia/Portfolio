@@ -17,6 +17,7 @@ import ThemeToggle from "./ui/ThemeToggle";
 import MediaViewer from "./MediaViewer";
 import { screenshotUrl } from "@/lib/screenshot";
 import { transformImage } from "@/lib/image";
+import { PdfIcon } from "./ui/icons";
 
 export default function Browser({
   projects,
@@ -188,7 +189,15 @@ function GridItem({
         </p>
       </div>
 
-      {project.type !== "image" && (
+      {project.type === "pdf" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-panel/80">
+          <span className="text-muted"><PdfIcon /></span>
+          <p className="line-clamp-2 px-3 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+            {project.title}
+          </p>
+        </div>
+      )}
+      {project.type !== "image" && project.type !== "pdf" && (
         <span className="absolute right-1.5 top-1.5 rounded bg-ink/70 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.15em] text-muted backdrop-blur">
           {project.type}
         </span>

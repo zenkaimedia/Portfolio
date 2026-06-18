@@ -18,13 +18,13 @@ export default function AdminForm({
   categories: string[];
   subcategories: string[];
 }) {
-  const [type, setType] = useState<"image" | "video" | "website">("image");
+  const [type, setType] = useState<"image" | "video" | "website" | "pdf">("image");
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const isFileType = type === "image" || type === "video";
+  const isFileType = type === "image" || type === "video" || type === "pdf";
   const isMulti = selectedFiles.length > 1;
 
   async function uploadOne(
@@ -207,16 +207,17 @@ export default function AdminForm({
           <option value="image">Image</option>
           <option value="video">Video</option>
           <option value="website">Website</option>
+          <option value="pdf">PDF</option>
         </select>
       </Field>
 
       {isFileType ? (
-        <Field label={type === "video" ? "Video files" : "Image files"}>
+        <Field label={type === "video" ? "Video files" : type === "pdf" ? "PDF files" : "Image files"}>
           <input
             ref={fileRef}
             type="file"
             multiple
-            accept={type === "video" ? "video/*" : "image/*"}
+            accept={type === "video" ? "video/*" : type === "pdf" ? "application/pdf,.pdf" : "image/*"}
             onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
             className="block w-full text-sm text-muted file:mr-4 file:rounded-full file:border file:border-gold/40 file:bg-gold/10 file:px-4 file:py-2 file:font-mono file:text-[11px] file:uppercase file:tracking-[0.2em] file:text-gold-soft hover:file:bg-gold/20"
           />

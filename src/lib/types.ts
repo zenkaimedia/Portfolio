@@ -1,4 +1,4 @@
-export type ProjectType = "image" | "video" | "website";
+export type ProjectType = "image" | "video" | "website" | "pdf";
 
 export interface Project {
   id: string;

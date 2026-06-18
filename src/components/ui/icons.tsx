@@ -21,6 +21,14 @@ export function FolderIcon({ open = false }: { open?: boolean }) {
 }
 
 export function FileIcon({ type }: { type: ProjectType }) {
+  if (type === "pdf") {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6M9 13h6M9 17h4" />
+      </svg>
+    );
+  }
   if (type === "video") {
     return (
       <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
@@ -68,6 +76,16 @@ export function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
       <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+export function PdfIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" {...base}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M9 13h6M9 17h4" />
     </svg>
   );
 }

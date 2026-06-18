@@ -47,8 +47,8 @@ export default function MediaViewer({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { if (isZoomed) setScale(1); else onClose(); }
-      else if (!isZoomed && e.key === "ArrowLeft") goPrev();
-      else if (!isZoomed && e.key === "ArrowRight") goNext();
+      else if (e.key === "ArrowLeft") goPrev();
+      else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";

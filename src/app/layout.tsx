@@ -33,6 +33,17 @@ export default function RootLayout({
       lang="en"
       className={`light ${bricolage.variable} ${sora.variable} ${jetbrains.variable}`}
     >
+      <head>
+        {/* Preconnect to Supabase storage — eliminates DNS + TCP/TLS overhead on first image */}
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <>
+            <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+          </>
+        )}
+        {/* Preconnect for website screenshot service */}
+        <link rel="dns-prefetch" href="https://s0.wp.com" />
+      </head>
       <body>
         {/* Runs before paint to avoid flash of wrong theme */}
         <script

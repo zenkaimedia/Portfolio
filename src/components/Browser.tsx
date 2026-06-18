@@ -105,8 +105,9 @@ export default function Browser({
       ) : (
         <div className="flex-1 overflow-y-auto p-3 md:p-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:gap-3">
-            {visibleItems.map((f) => (
+            {visibleItems.map((f, idx) => (
               <GridItem
+                priority={idx < 8}
                 key={f.file.project.id}
                 item={f}
                 active={file?.project.id === f.file.project.id}
@@ -141,10 +142,12 @@ export default function Browser({
 function GridItem({
   item,
   active,
+  priority = false,
   onSelect,
 }: {
   item: FlatFile;
   active: boolean;
+  priority?: boolean;
   onSelect: () => void;
 }) {
   const { project } = item.file;
@@ -163,9 +166,11 @@ function GridItem({
       {project.type === "image" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={transformImage(project.media, 400, 80)}
+          src={transformImage(project.media, 400, 75)}
           alt={project.title}
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "low"}
+          decoding="async"
           draggable={false}
           onContextMenu={(e) => e.preventDefault()}
           className="h-full w-full select-none object-cover transition-transform duration-300 group-hover:scale-105"
@@ -173,15 +178,27 @@ function GridItem({
       )}
       {project.type === "video" && (
         <video
-          src={project.media}
+          src={priority ? project.media : undefined}
+          data-src={!priority ? project.media : undefined}
           muted
           playsInline
-          preload="metadata"
+          preload={priority ? "metadata" : "none"}
           controlsList="nodownload"
           disablePictureInPicture
           onContextMenu={(e) => e.preventDefault()}
           onLoadedMetadata={(e) => {
             try { e.currentTarget.currentTime = 0.1; } catch { /* ignore */ }
+          }}
+          ref={(el) => {
+            if (!el || priority) return;
+            const obs = new IntersectionObserver(([entry]) => {
+              if (entry.isIntersecting) {
+                el.src = el.dataset.src ?? "";
+                el.preload = "metadata";
+                obs.disconnect();
+              }
+            }, { rootMargin: "200px" });
+            obs.observe(el);
           }}
           className="h-full w-full object-cover"
         />

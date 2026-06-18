@@ -268,6 +268,8 @@ function ZoomableImage({
         key={project.id}
         src={transformImage(project.media, 1600, 85)}
         alt={project.title}
+        fetchPriority="high"
+        decoding="async"
         draggable={false}
         onContextMenu={(e) => e.preventDefault()}
         className="max-h-[82vh] w-full rounded-xl object-contain shadow-2xl"

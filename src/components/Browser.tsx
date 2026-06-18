@@ -36,6 +36,16 @@ export default function Browser({
 
   const { chain, file } = useMemo(() => resolvePath(tree, path), [tree, path]);
 
+  // If a category folder is in the chain (no file yet), filter grid to that category
+  const selectedCategory = chain.length > 0 ? chain[0] : null;
+  const visibleItems = useMemo(
+    () =>
+      selectedCategory
+        ? flat.filter((f) => f.file.project.category === selectedCategory.name)
+        : flat,
+    [flat, selectedCategory]
+  );
+
   // ── URL sync ──────────────────────────────────────────────────────────────
   const navigate = useCallback((slugs: string[], replace = false) => {
     setPath(slugs);
@@ -62,14 +72,14 @@ export default function Browser({
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
     } else {
-      navigate([], true);
+      navigate(selectedCategory ? [selectedCategory.slug] : [], true);
     }
-  }, [navigate]);
+  }, [navigate, selectedCategory]);
 
-  // ── Sibling navigation (all files) ───────────────────────────────────────
-  const fileIndex = file ? flat.findIndex((f) => f.file.project.id === file.project.id) : -1;
+  // ── Sibling navigation (scoped to visible items) ─────────────────────────
+  const fileIndex = file ? visibleItems.findIndex((f) => f.file.project.id === file.project.id) : -1;
   const gotoSibling = (i: number) => {
-    const item = flat[i];
+    const item = visibleItems[i];
     if (item) navigate(item.path, true);
   };
 
@@ -86,16 +96,16 @@ export default function Browser({
       <div className="hairline h-px w-full shrink-0" />
 
       {/* Flat image grid */}
-      {flat.length === 0 ? (
+      {visibleItems.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-muted">
-            No work to show yet — add projects in the admin panel.
+            No projects here yet.
           </p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-3 md:p-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:gap-3">
-            {flat.map((f) => (
+            {visibleItems.map((f) => (
               <GridItem
                 key={f.file.project.id}
                 item={f}
@@ -114,9 +124,9 @@ export default function Browser({
             file={file}
             onClose={closeViewer}
             index={fileIndex}
-            total={flat.length}
+            total={visibleItems.length}
             onPrev={fileIndex > 0 ? () => gotoSibling(fileIndex - 1) : undefined}
-            onNext={fileIndex < flat.length - 1 ? () => gotoSibling(fileIndex + 1) : undefined}
+            onNext={fileIndex < visibleItems.length - 1 ? () => gotoSibling(fileIndex + 1) : undefined}
           />
         )}
       </AnimatePresence>

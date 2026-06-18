@@ -157,6 +157,51 @@ function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: Me
   );
 }
 
+/* ── Confirm dialog ──────────────────────────────────────────────────────── */
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = "Delete",
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.15 }}
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-ink-2 p-6 shadow-2xl"
+      >
+        <h3 className="mb-2 font-display text-lg font-bold text-bone">{title}</h3>
+        <p className="mb-6 text-sm leading-relaxed text-muted">{message}</p>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="rounded-full border border-line px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:border-muted hover:text-bone"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-full border border-ember/40 bg-ember/10 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ember transition-colors hover:bg-ember/20"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ── Move-to dialog ──────────────────────────────────────────────────────── */
 function MoveToDialog({
   folders, onConfirm, onClose,
@@ -380,6 +425,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   const [localFolders, setLocalFolders] = useState<string[]>([]);
   const allFolders = [...folders, ...localFolders.filter((f) => !folders.includes(f))];
 
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useDrag(folders, (f) => f, async (next) => {
     setFolders(next);
@@ -418,13 +464,19 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
     setRenaming(null); startTransition(() => router.refresh());
   }
 
-  async function doDelete(category: string, count: number) {
-    if (!confirm(`Delete "${category}" and all ${count} item(s)?`)) return;
-    const res = await deleteFolderAction({ category, subcategory: null });
-    if ("error" in res) { setMsg(res.error); return; }
-    onProjectsChange(projects.filter((p) => p.category !== category));
-    setFolders((prev) => prev.filter((f) => f !== category));
-    startTransition(() => router.refresh());
+  function doDelete(category: string, count: number) {
+    setConfirmDialog({
+      title: `Delete "${category}"?`,
+      message: `This will permanently delete the folder and all ${count} item(s) inside. This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        const res = await deleteFolderAction({ category, subcategory: null });
+        if ("error" in res) { setMsg(res.error); return; }
+        onProjectsChange(projects.filter((p) => p.category !== category));
+        setFolders((prev) => prev.filter((f) => f !== category));
+        startTransition(() => router.refresh());
+      },
+    });
   }
 
   const firstImg = (cat: string) => catMap.get(cat)?.find((p) => p.type === "image")?.media;
@@ -462,6 +514,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
           )}
         </div>
         <AnimatePresence>{ctx && <ContextMenu x={ctx.x} y={ctx.y} items={getCtxItems()} onClose={() => setCtx(null)} />}</AnimatePresence>
+        <AnimatePresence>{confirmDialog && <ConfirmDialog title={confirmDialog.title} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}</AnimatePresence>
       </div>
     );
   }
@@ -501,6 +554,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
         </motion.div>
       ))}
       <AnimatePresence>{ctx && <ContextMenu x={ctx.x} y={ctx.y} items={getCtxItems()} onClose={() => setCtx(null)} />}</AnimatePresence>
+      <AnimatePresence>{confirmDialog && <ConfirmDialog title={confirmDialog.title} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}</AnimatePresence>
     </div>
   );
 }
@@ -526,6 +580,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [moveToOpen, setMoveToOpen] = useState(false);
 
   const [recentlyPasted, setRecentlyPasted] = useState<Set<string>>(new Set());
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const itemScrollRef = useRef<HTMLDivElement>(null);
   const drag = useDrag(items, (p) => p.id, async (next) => {
     setItems(next);
@@ -609,27 +664,39 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
     startTransition(() => router.refresh());
   }
 
-  async function doDelete(project: Project) {
-    if (!confirm(`Delete "${project.title}"?`)) return;
-    setBusyId(project.id);
-    const res = await deleteProjectAction(project.id, project.media);
-    setBusyId(null);
-    if ("error" in res) { setMsg(res.error); return; }
-    setItems((prev) => prev.filter((p) => p.id !== project.id));
-    onProjectsChange(projects.filter((p) => p.id !== project.id));
-    startTransition(() => router.refresh());
+  function doDelete(project: Project) {
+    setConfirmDialog({
+      title: `Delete "${project.title}"?`,
+      message: "This will permanently delete the item and its file. This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setBusyId(project.id);
+        const res = await deleteProjectAction(project.id, project.media);
+        setBusyId(null);
+        if ("error" in res) { setMsg(res.error); return; }
+        setItems((prev) => prev.filter((p) => p.id !== project.id));
+        onProjectsChange(projects.filter((p) => p.id !== project.id));
+        startTransition(() => router.refresh());
+      },
+    });
   }
 
-  async function doDeleteSelected() {
+  function doDeleteSelected() {
     if (!selected.size) return;
-    if (!confirm(`Delete ${selected.size} item(s)?`)) return;
-    const toDelete = items.filter((p) => selected.has(p.id)).map((p) => ({ id: p.id, media: p.media }));
-    const res = await bulkDeleteProjectsAction(toDelete);
-    if ("error" in res) { setMsg(res.error); return; }
-    setItems((prev) => prev.filter((p) => !selected.has(p.id)));
-    onProjectsChange(projects.filter((p) => !selected.has(p.id)));
-    setSelected(new Set());
-    startTransition(() => router.refresh());
+    setConfirmDialog({
+      title: `Delete ${selected.size} item(s)?`,
+      message: `This will permanently delete ${selected.size} selected item(s) and their files. This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        const toDelete = items.filter((p) => selected.has(p.id)).map((p) => ({ id: p.id, media: p.media }));
+        const res = await bulkDeleteProjectsAction(toDelete);
+        if ("error" in res) { setMsg(res.error); return; }
+        setItems((prev) => prev.filter((p) => !selected.has(p.id)));
+        onProjectsChange(projects.filter((p) => !selected.has(p.id)));
+        setSelected(new Set());
+        startTransition(() => router.refresh());
+      },
+    });
   }
 
   async function doMoveSelected(targetCategory: string) {
@@ -782,6 +849,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
       )}
 
       <AnimatePresence>{ctx && <ContextMenu x={ctx.x} y={ctx.y} items={getCtxItems()} onClose={() => setCtx(null)} />}</AnimatePresence>
+      <AnimatePresence>{confirmDialog && <ConfirmDialog title={confirmDialog.title} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}</AnimatePresence>
       {moveToOpen && <MoveToDialog folders={categories.filter((c) => c !== category)} onConfirm={doMoveSelected} onClose={() => setMoveToOpen(false)} />}
       {editingProject && <EditModal project={editingProject} categories={categories} subcategories={subcategories} onSave={doEdit} onClose={() => setEditingProject(null)} busy={busyId === editingProject.id} />}
     </div>

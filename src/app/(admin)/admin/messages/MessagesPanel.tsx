@@ -1,13 +1,61 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import type { MessageTemplate } from "./actions";
 import { createTemplateAction, updateTemplateAction, deleteTemplateAction } from "./actions";
 
-const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
+const inputCls =
+  "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
 
-/* ── New / Edit form ─────────────────────────────────────────────────────── */
+/* ── Sidebar item with hover-preview tooltip ─────────────────────────────── */
+function SidebarItem({
+  template,
+  selected,
+  onClick,
+}: {
+  template: MessageTemplate;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const [tooltip, setTooltip] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function enter() {
+    timer.current = setTimeout(() => setTooltip(true), 800);
+  }
+  function leave() {
+    if (timer.current) clearTimeout(timer.current);
+    setTooltip(false);
+  }
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  return (
+    <div className="relative" onMouseEnter={enter} onMouseLeave={leave}>
+      <button
+        onClick={onClick}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
+          selected
+            ? "bg-gold/15 text-gold"
+            : "text-bone/70 hover:bg-white/5 hover:text-bone"
+        }`}
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+        </svg>
+        <span className="truncate text-[13px]">{template.title}</span>
+      </button>
+
+      {tooltip && (
+        <div className="pointer-events-none absolute left-full top-0 z-50 ml-3 w-72 max-h-52 overflow-y-auto rounded-xl border border-line bg-ink-2 p-4 shadow-2xl">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-gold mb-2">{template.title}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-bone">{template.message}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
 function TemplateForm({
   initial,
   onSave,
@@ -25,27 +73,12 @@ function TemplateForm({
   return (
     <div className="space-y-4 rounded-2xl border border-gold/30 bg-ink-2/60 p-5">
       <div>
-        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-          Template Name
-        </label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Initial Outreach"
-          className={inputCls}
-        />
+        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Template Name</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Initial Outreach" className={inputCls} autoFocus />
       </div>
       <div>
-        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-          Message
-        </label>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={5}
-          placeholder="Hi, I wanted to share our portfolio with you…"
-          className={inputCls}
-        />
+        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Message</label>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={5} placeholder="Hi, I wanted to share our portfolio with you…" className={inputCls} />
       </div>
       <div className="flex items-center gap-3">
         <button
@@ -55,10 +88,7 @@ function TemplateForm({
         >
           {busy ? "Saving…" : "Save"}
         </button>
-        <button
-          onClick={onCancel}
-          className="font-mono text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone"
-        >
+        <button onClick={onCancel} className="font-mono text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone">
           Cancel
         </button>
       </div>
@@ -85,25 +115,15 @@ function TemplateCard({
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-ink-2/60 p-5">
+    <div id={`tpl-${template.id}`} className="scroll-mt-4 rounded-2xl border border-line bg-ink-2/60 p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
-        <h3 className="font-display text-base font-semibold text-bone">
-          {template.title}
-        </h3>
-        <div className="flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em]">
-          <button onClick={onEdit} className="text-muted transition-colors hover:text-gold">
-            Edit
-          </button>
-          <button onClick={onDelete} className="text-muted transition-colors hover:text-ember">
-            Delete
-          </button>
+        <h3 className="font-display text-base font-semibold text-bone">{template.title}</h3>
+        <div className="flex shrink-0 items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em]">
+          <button onClick={onEdit} className="text-muted transition-colors hover:text-gold">Edit</button>
+          <button onClick={onDelete} className="text-muted transition-colors hover:text-ember">Delete</button>
         </div>
       </div>
-
-      <p className="mb-4 line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-muted">
-        {template.message}
-      </p>
-
+      <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-muted">{template.message}</p>
       <button
         onClick={copy}
         className={`rounded-xl border px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] transition-all ${
@@ -119,32 +139,43 @@ function TemplateCard({
 }
 
 /* ── Main panel ──────────────────────────────────────────────────────────── */
-export default function MessagesPanel({
-  templates: initial,
-}: {
-  templates: MessageTemplate[];
-}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+export default function MessagesPanel({ templates: initial }: { templates: MessageTemplate[] }) {
   const [templates, setTemplates] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const filtered = templates.filter((t) =>
+    t.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function scrollTo(id: string) {
+    setSelectedId(id);
+    document.getElementById(`tpl-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   async function handleCreate(title: string, message: string) {
-    setErr(null);
+    setErr(null); setBusy(true);
     const res = await createTemplateAction(title, message);
+    setBusy(false);
     if ("error" in res) { setErr(res.error); return; }
+    // Instantly prepend — no refresh needed
+    setTemplates((prev) => [res.template, ...prev]);
     setShowForm(false);
-    startTransition(() => router.refresh());
+    setSelectedId(res.template.id);
+    setTimeout(() => scrollTo(res.template.id), 50);
   }
 
   async function handleUpdate(id: string, title: string, message: string) {
-    setErr(null);
+    setErr(null); setBusy(true);
     const res = await updateTemplateAction(id, title, message);
+    setBusy(false);
     if ("error" in res) { setErr(res.error); return; }
+    setTemplates((prev) => prev.map((t) => (t.id === id ? res.template : t)));
     setEditingId(null);
-    startTransition(() => router.refresh());
   }
 
   async function handleDelete(id: string) {
@@ -152,58 +183,91 @@ export default function MessagesPanel({
     const res = await deleteTemplateAction(id);
     if ("error" in res) { setErr(res.error); return; }
     setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (selectedId === id) setSelectedId(null);
   }
 
   return (
-    <div className="space-y-5">
-      {err && (
-        <p className="font-mono text-xs text-ember">{err}</p>
-      )}
-
-      {/* New template button */}
-      {!showForm && (
-        <button
-          onClick={() => { setShowForm(true); setEditingId(null); }}
-          className="rounded-full border border-gold/40 bg-gold/10 px-6 py-3 font-mono text-xs uppercase tracking-[0.22em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20"
-        >
-          + New Template
-        </button>
-      )}
-
-      {/* New template form */}
-      {showForm && (
-        <TemplateForm
-          onSave={handleCreate}
-          onCancel={() => setShowForm(false)}
-          busy={pending}
+    <div className="flex gap-5">
+      {/* ── Left sidebar ─────────────────────────────────────────────────── */}
+      <aside className="hidden w-52 shrink-0 flex-col gap-1 lg:flex">
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Search…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="mb-3 w-full rounded-lg border border-line bg-ink px-3 py-2 font-mono text-xs text-bone outline-none transition-colors placeholder:text-muted/50 focus:border-gold"
         />
-      )}
 
-      {/* Template list */}
-      {templates.length === 0 && !showForm && (
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">
-          No templates yet — create your first one.
-        </p>
-      )}
-
-      {templates.map((t) =>
-        editingId === t.id ? (
-          <TemplateForm
-            key={t.id}
-            initial={{ title: t.title, message: t.message }}
-            onSave={(title, message) => handleUpdate(t.id, title, message)}
-            onCancel={() => setEditingId(null)}
-            busy={pending}
-          />
+        {filtered.length === 0 ? (
+          <p className="px-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+            {templates.length === 0 ? "No templates yet" : "No matches"}
+          </p>
         ) : (
-          <TemplateCard
-            key={t.id}
-            template={t}
-            onEdit={() => { setEditingId(t.id); setShowForm(false); }}
-            onDelete={() => handleDelete(t.id)}
-          />
-        )
-      )}
+          filtered.map((t) => (
+            <SidebarItem
+              key={t.id}
+              template={t}
+              selected={selectedId === t.id}
+              onClick={() => scrollTo(t.id)}
+            />
+          ))
+        )}
+      </aside>
+
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <div className="flex-1 space-y-4 min-w-0">
+        {err && <p className="font-mono text-xs text-ember">{err}</p>}
+
+        {/* Mobile search */}
+        <input
+          type="text"
+          placeholder="Search templates…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-xl border border-line bg-ink px-4 py-2.5 font-mono text-sm text-bone outline-none transition-colors placeholder:text-muted/50 focus:border-gold lg:hidden"
+        />
+
+        {!showForm && (
+          <button
+            onClick={() => { setShowForm(true); setEditingId(null); }}
+            className="rounded-full border border-gold/40 bg-gold/10 px-6 py-3 font-mono text-xs uppercase tracking-[0.22em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20"
+          >
+            + New Template
+          </button>
+        )}
+
+        {showForm && (
+          <TemplateForm onSave={handleCreate} onCancel={() => setShowForm(false)} busy={busy} />
+        )}
+
+        {templates.length === 0 && !showForm && (
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">
+            No templates yet — create your first one.
+          </p>
+        )}
+
+        {templates
+          .filter((t) => t.title.toLowerCase().includes(search.toLowerCase()))
+          .map((t) =>
+            editingId === t.id ? (
+              <TemplateForm
+                key={t.id}
+                initial={{ title: t.title, message: t.message }}
+                onSave={(title, message) => handleUpdate(t.id, title, message)}
+                onCancel={() => setEditingId(null)}
+                busy={busy}
+              />
+            ) : (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                onEdit={() => { setEditingId(t.id); setShowForm(false); }}
+                onDelete={() => handleDelete(t.id)}
+              />
+            )
+          )}
+      </div>
     </div>
   );
 }

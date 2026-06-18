@@ -24,31 +24,35 @@ export async function fetchTemplates(): Promise<MessageTemplate[]> {
 export async function createTemplateAction(
   title: string,
   message: string
-): Promise<{ ok: true } | { error: string }> {
+): Promise<{ ok: true; template: MessageTemplate } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   if (!title.trim() || !message.trim()) return { error: "Title and message are required." };
-  const { error } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("message_templates")
-    .insert({ title: title.trim(), message: message.trim() });
+    .insert({ title: title.trim(), message: message.trim() })
+    .select()
+    .single();
   if (error) return { error: error.message };
   revalidatePath("/admin/messages");
-  return { ok: true };
+  return { ok: true, template: data as MessageTemplate };
 }
 
 export async function updateTemplateAction(
   id: string,
   title: string,
   message: string
-): Promise<{ ok: true } | { error: string }> {
+): Promise<{ ok: true; template: MessageTemplate } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   if (!title.trim() || !message.trim()) return { error: "Title and message are required." };
-  const { error } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("message_templates")
     .update({ title: title.trim(), message: message.trim() })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
   if (error) return { error: error.message };
   revalidatePath("/admin/messages");
-  return { ok: true };
+  return { ok: true, template: data as MessageTemplate };
 }
 
 export async function deleteTemplateAction(

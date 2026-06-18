@@ -82,6 +82,18 @@ create policy "Public read portfolio"
   to anon, authenticated
   using (bucket_id = 'portfolio');
 
+-- 4. Message templates (admin-only, no public read policy) ------------------
+create table if not exists public.message_templates (
+  id uuid not null default gen_random_uuid(),
+  title text not null,
+  message text not null,
+  created_at timestamp without time zone null default now(),
+  constraint message_templates_pkey primary key (id)
+);
+
+alter table public.message_templates enable row level security;
+-- No anon read policy — only service_role (admin) can access this table.
+
 -- ============================================================================
 -- After running this, your "media" column should hold the public URL of each
 -- file, e.g.:

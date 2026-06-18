@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 
 const NAV = [
-  { href: "/admin",        label: "Add Project",      icon: PlusIcon,   exact: true },
-  { href: "/admin/manage", label: "Manage",            icon: LayersIcon, exact: false },
-  { href: "/admin/share",  label: "Portfolio Sharing", icon: LinkIcon,   exact: false },
+  { href: "/admin",          label: "Add Project",       icon: PlusIcon,    exact: true },
+  { href: "/admin/manage",   label: "Manage",             icon: LayersIcon,  exact: false },
+  { href: "/admin/share",    label: "Portfolio Sharing",  icon: LinkIcon,    exact: false },
+  { href: "/admin/messages", label: "Message Templates",  icon: MessageIcon, exact: false },
 ] as const;
 
 export default function AdminSidebar() {

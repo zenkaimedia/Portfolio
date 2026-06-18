@@ -133,30 +133,6 @@ export default function MediaViewer({
 function MediaContent({ file }: { file: FileNode }) {
   const { project } = file;
 
-  if (project.type === "pdf") {
-    return (
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-[85vh] w-[90vw] max-w-4xl flex-col overflow-hidden rounded-xl shadow-2xl"
-      >
-        <iframe
-          src={project.media}
-          title={project.title}
-          className="h-full w-full rounded-xl border border-line/20 bg-white"
-        />
-        <a
-          href={project.media}
-          download
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 self-center rounded-full border border-gold/40 bg-gold/10 px-6 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-gold-soft transition-colors hover:bg-gold/20"
-        >
-          Download PDF
-        </a>
-      </div>
-    );
-  }
-
   if (project.type === "video") {
     return (
       <video

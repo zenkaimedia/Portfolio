@@ -151,7 +151,7 @@ function GridItem({
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.2 }}
-      onClick={onSelect}
+      onClick={project.type === "pdf" ? () => window.open(project.media, "_blank") : onSelect}
       className={`group relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black ring-2 transition-all duration-150 ${
         active ? "ring-gold" : "ring-transparent hover:ring-gold/40"
       }`}

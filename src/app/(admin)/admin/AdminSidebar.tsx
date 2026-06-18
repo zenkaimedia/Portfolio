@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, ExternalIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 
 const NAV = [
@@ -52,16 +52,7 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Bottom actions */}
-      <div className="border-t border-line p-3 space-y-1">
-        <a
-          href="/work"
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-3 rounded-xl px-4 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:bg-white/5 hover:text-bone"
-        >
-          <ExternalIcon />
-          View Portfolio
-        </a>
+      <div className="border-t border-line p-3">
         <form action={logoutAction}>
           <button
             type="submit"

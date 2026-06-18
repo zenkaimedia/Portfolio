@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
+import { buildTree, flattenFiles, resolvePath } from "@/lib/tree";
 import Browser from "@/components/Browser";
 import Logo from "@/components/ui/Logo";
 
@@ -18,6 +20,23 @@ export default async function PortfolioPage({
       fetchProjects(),
       fetchFolderOrder(),
     ]);
+
+    // If visiting a category URL (/work/[slug]), check if that category is a PDF.
+    // If so, redirect straight to the PDF URL — works natively on all devices.
+    if (initialPath.length === 1) {
+      const tree = buildTree(projects, folderOrder);
+      const { chain } = resolvePath(tree, initialPath);
+      if (chain.length === 1) {
+        const flat = flattenFiles(tree);
+        const pdf = flat.find(
+          (f) =>
+            f.file.project.category === chain[0].name &&
+            f.file.project.type === "pdf"
+        );
+        if (pdf) redirect(pdf.file.project.media);
+      }
+    }
+
     return (
       <Browser
         projects={projects}

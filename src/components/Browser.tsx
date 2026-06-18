@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
@@ -18,7 +17,7 @@ import ThemeToggle from "./ui/ThemeToggle";
 import MediaViewer from "./MediaViewer";
 import { screenshotUrl } from "@/lib/screenshot";
 import { transformImage } from "@/lib/image";
-import { PdfIcon, CloseIcon } from "./ui/icons";
+import { PdfIcon } from "./ui/icons";
 
 export default function Browser({
   projects,
@@ -34,8 +33,6 @@ export default function Browser({
   const flat = useMemo(() => flattenFiles(tree), [tree]);
 
   const [path, setPath] = useState<string[]>(initialPath);
-  const [pdfFile, setPdfFile] = useState<{ url: string; title: string } | null>(null);
-  const autoOpenedCat = useRef<string | null>(null);
 
   const { chain, file } = useMemo(() => resolvePath(tree, path), [tree, path]);
 
@@ -48,17 +45,6 @@ export default function Browser({
         : flat,
     [flat, selectedCategory]
   );
-
-  // ── Auto-open PDF when a category URL is loaded directly ─────────────────
-  useEffect(() => {
-    if (!selectedCategory) return;
-    if (autoOpenedCat.current === selectedCategory.name) return;
-    const pdf = visibleItems.find((f) => f.file.project.type === "pdf");
-    if (pdf) {
-      autoOpenedCat.current = selectedCategory.name;
-      setPdfFile({ url: pdf.file.project.media, title: pdf.file.project.title });
-    }
-  }, [selectedCategory?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URL sync ──────────────────────────────────────────────────────────────
   const navigate = useCallback((slugs: string[], replace = false) => {
@@ -126,7 +112,7 @@ export default function Browser({
                 active={file?.project.id === f.file.project.id}
                 onSelect={
                   f.file.project.type === "pdf"
-                    ? () => setPdfFile({ url: f.file.project.media, title: f.file.project.title })
+                    ? () => { window.location.href = f.file.project.media; }
                     : () => navigate(f.path)
                 }
               />
@@ -136,17 +122,6 @@ export default function Browser({
       )}
 
       {/* Media viewer */}
-      {/* Full-screen PDF viewer */}
-      <AnimatePresence>
-        {pdfFile && (
-          <PdfViewer
-            url={pdfFile.url}
-            title={pdfFile.title}
-            onClose={() => setPdfFile(null)}
-          />
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {file && (
           <MediaViewer
@@ -245,49 +220,3 @@ function GridItem({
   );
 }
 
-/* ── Full-screen PDF viewer ──────────────────────────────────────────────── */
-function PdfViewer({
-  url,
-  title,
-  onClose,
-}: {
-  url: string;
-  title: string;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 bg-ink"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-    >
-      {/* Floating close button */}
-      <button
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
-      >
-        <CloseIcon />
-      </button>
-
-      {/* Full-screen PDF */}
-      <iframe
-        src={url}
-        title={title}
-        className="h-full w-full border-none"
-      />
-    </motion.div>
-  );
-}

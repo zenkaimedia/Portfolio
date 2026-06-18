@@ -453,6 +453,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   const [, startTransition] = useTransition();
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [newFolder, setNewFolder] = useState(false);
@@ -472,6 +473,9 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   // Add empty local folders not in catMap
   const [localFolders, setLocalFolders] = useState<string[]>([]);
   const allFolders = [...folders, ...localFolders.filter((f) => !folders.includes(f))];
+  const visibleFolders = search.trim()
+    ? allFolders.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
+    : allFolders;
 
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -531,10 +535,11 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
 
   if (viewMode === "grid") {
     return (
-      <div ref={scrollRef} className="flex-1 overflow-y-auto" onContextMenu={(e) => { if (e.target === e.currentTarget) openCtx(e, { kind: "bg" }); }}>
-        {msg && <p className="mb-3 font-mono text-xs text-ember">{msg}</p>}
+      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto" onContextMenu={(e) => { if (e.target === e.currentTarget) openCtx(e, { kind: "bg" }); }}>
+        <input type="text" placeholder="Search folders…" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 shrink-0 w-full rounded-xl border border-line bg-ink px-4 py-3 font-mono text-sm text-bone outline-none transition-colors placeholder:text-muted/50 focus:border-gold" />
+        {msg && <p className="mb-3 shrink-0 font-mono text-xs text-ember">{msg}</p>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
-          {allFolders.map((cat) =>
+          {visibleFolders.map((cat) =>
             renaming === cat ? (
               <motion.div key={cat} layout className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl border border-gold/30 bg-ink-2/60 p-4">
                 <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doRename(cat); if (e.key === "Escape") setRenaming(null); }} className="w-full rounded-lg border border-gold/40 bg-ink px-3 py-2 text-sm text-bone outline-none" autoFocus />
@@ -568,15 +573,17 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
-      {msg && <p className="font-mono text-xs text-ember">{msg}</p>}
+    <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto" onContextMenu={(e) => openCtx(e, { kind: "bg" })}>
+      <input type="text" placeholder="Search folders…" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 shrink-0 w-full rounded-xl border border-line bg-ink px-4 py-3 font-mono text-sm text-bone outline-none transition-colors placeholder:text-muted/50 focus:border-gold" />
+      {msg && <p className="mb-2 shrink-0 font-mono text-xs text-ember">{msg}</p>}
+      <div className="flex-1 space-y-2">
       {newFolder && (
         <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-gold/40 bg-ink-2/40 px-4 py-3">
           <span>📁</span>
           <input onKeyDown={(e) => { if (e.key === "Enter" && e.currentTarget.value.trim()) { setLocalFolders((p) => [...p, e.currentTarget.value.trim()]); setNewFolder(false); } if (e.key === "Escape") setNewFolder(false); }} placeholder="Folder name…" className="flex-1 rounded-lg border border-gold/40 bg-ink px-3 py-2 text-sm text-bone outline-none" autoFocus />
         </div>
       )}
-      {allFolders.map((cat) => (
+      {visibleFolders.map((cat) => (
         <motion.div key={cat} layout transition={{ type: "spring", stiffness: 400, damping: 35 }}>
           {renaming === cat ? (
             <div className="flex items-center gap-3 rounded-xl border border-gold/30 bg-ink-2/60 px-4 py-3">
@@ -601,6 +608,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
           )}
         </motion.div>
       ))}
+      </div>
       <AnimatePresence>{ctx && <ContextMenu x={ctx.x} y={ctx.y} items={getCtxItems()} onClose={() => setCtx(null)} />}</AnimatePresence>
       <AnimatePresence>{confirmDialog && <ConfirmDialog title={confirmDialog.title} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog(null)} />}</AnimatePresence>
     </div>
@@ -627,6 +635,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [moveToOpen, setMoveToOpen] = useState(false);
 
+  const [itemSearch, setItemSearch] = useState("");
   const [recentlyPasted, setRecentlyPasted] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const itemScrollRef = useRef<HTMLDivElement>(null);
@@ -835,12 +844,22 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
       </div>
 
       {msg && <p className="mb-3 shrink-0 font-mono text-xs text-ember">{msg}</p>}
-      {items.length === 0 && !clipboard && <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Empty folder. {clipboard ? "Right-click to paste." : ""}</p>}
+
+      {/* Item search */}
+      <input
+        type="text"
+        placeholder="Search items…"
+        value={itemSearch}
+        onChange={(e) => setItemSearch(e.target.value)}
+        className="mb-3 shrink-0 w-full rounded-xl border border-line bg-ink px-4 py-2.5 font-mono text-sm text-bone outline-none transition-colors placeholder:text-muted/50 focus:border-gold"
+      />
+
+      {items.length === 0 && !clipboard && <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Empty folder.</p>}
 
       {viewMode === "grid" ? (
         <div ref={itemScrollRef} className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {items.map((p) => (
+            {items.filter((p) => !itemSearch.trim() || p.title.toLowerCase().includes(itemSearch.toLowerCase())).map((p) => (
               <motion.div
                 key={p.id}
                 layout
@@ -869,7 +888,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
         </div>
       ) : (
         <div ref={itemScrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-line">
-          {items.map((p) => (
+          {items.filter((p) => !itemSearch.trim() || p.title.toLowerCase().includes(itemSearch.toLowerCase())).map((p) => (
             <motion.div
               key={p.id}
               layout

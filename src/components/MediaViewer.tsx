@@ -129,7 +129,7 @@ export default function MediaViewer({
         </motion.div>
       </AnimatePresence>
 
-      {!isZoomed && canSwipe && (
+      {canSwipe && (
         <>
           <NavArrow side="left" onClick={goPrev} disabled={!onPrev} />
           <NavArrow side="right" onClick={goNext} disabled={!onNext} />

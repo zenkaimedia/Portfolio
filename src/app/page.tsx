@@ -59,7 +59,10 @@ export default function Home() {
           Zenkai Media is a creative growth agency specializing in branding,
           AI video, performance creative, video production, web development, and
           digital marketing. Having delivered 500+ projects across 20+
-          industries, we serve clients across India and around the world.
+          industries, we serve clients across India and around the world — in
+          the USA, UK, Dubai, Germany, Australia, and Canada. Our growing team
+          spans Mumbai, Bangalore, Delhi, and Ahmedabad, helping brands scale
+          through impactful creative and marketing solutions.
         </p>
 
         <div

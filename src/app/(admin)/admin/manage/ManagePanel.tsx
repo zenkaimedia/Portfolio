@@ -207,22 +207,63 @@ function MoveToDialog({
   folders, onConfirm, onClose,
 }: { folders: string[]; onConfirm: (cat: string) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
+  const [newMode, setNewMode] = useState(false);
+  const [newName, setNewName] = useState("");
   const filtered = folders.filter((f) => f.toLowerCase().includes(q.toLowerCase()));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-ink-2 p-5 shadow-2xl">
-        <h3 className="mb-4 font-display text-base font-bold text-bone">Move to folder</h3>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search folders…" className={`${inputCls} mb-3 py-2 text-sm`} autoFocus />
-        <div className="max-h-60 space-y-1 overflow-y-auto">
-          {filtered.map((f) => (
-            <button key={f} onClick={() => onConfirm(f)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-bone transition-colors hover:bg-white/5">
-              <span>📁</span>{f}
+
+        {newMode ? (
+          <>
+            <button onClick={() => setNewMode(false)} className="mb-4 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted hover:text-bone">
+              <span className="rotate-180 inline-block">›</span> Back
             </button>
-          ))}
-          {filtered.length === 0 && <p className="px-3 font-mono text-xs text-muted">No folders found</p>}
-        </div>
+            <h3 className="mb-4 font-display text-base font-bold text-bone">Create new folder</h3>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) onConfirm(newName.trim()); }}
+              placeholder="Folder name…"
+              className={`${inputCls} mb-4 text-sm`}
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => newName.trim() && onConfirm(newName.trim())}
+                disabled={!newName.trim()}
+                className="rounded-full border border-gold/40 bg-gold/10 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20 disabled:opacity-40"
+              >
+                Create & Move
+              </button>
+              <button onClick={onClose} className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted hover:text-bone">Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="mb-4 font-display text-base font-bold text-bone">Move to folder</h3>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search folders…" className={`${inputCls} mb-3 py-2 text-sm`} autoFocus />
+            <div className="max-h-52 space-y-1 overflow-y-auto">
+              {filtered.map((f) => (
+                <button key={f} onClick={() => onConfirm(f)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-bone transition-colors hover:bg-white/5">
+                  <span>📁</span>{f}
+                </button>
+              ))}
+              {filtered.length === 0 && <p className="px-3 font-mono text-xs text-muted">No folders found</p>}
+            </div>
+            <div className="mt-3 border-t border-line pt-3">
+              <button
+                onClick={() => setNewMode(true)}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-gold transition-colors hover:bg-gold/5"
+              >
+                <span>📁</span>
+                <span>+ Create new folder</span>
+              </button>
+            </div>
+          </>
+        )}
       </motion.div>
     </div>
   );

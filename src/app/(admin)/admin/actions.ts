@@ -162,6 +162,47 @@ export async function updateProjectAction(input: {
   return { ok: true };
 }
 
+/** Move items to a different category (bulk update). */
+export async function moveItemsAction(
+  ids: string[],
+  targetCategory: string
+): Promise<{ ok: true } | { error: string }> {
+  if (!(await isAuthed())) return { error: "Unauthorized." };
+  if (!ids.length) return { ok: true };
+  const { error } = await getSupabaseAdmin()
+    .from("projects")
+    .update({ category: targetCategory, subcategory: null })
+    .in("id", ids);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+/** Copy items to a different category (insert duplicate rows). */
+export async function copyItemsAction(
+  ids: string[],
+  targetCategory: string
+): Promise<{ ok: true; count: number } | { error: string }> {
+  if (!(await isAuthed())) return { error: "Unauthorized." };
+  if (!ids.length) return { ok: true, count: 0 };
+  const supabase = getSupabaseAdmin();
+  const { data, error: fetchErr } = await supabase
+    .from("projects")
+    .select("title, type, media, description")
+    .in("id", ids);
+  if (fetchErr) return { error: fetchErr.message };
+  const copies = (data ?? []).map((p) => ({
+    title: p.title,
+    category: targetCategory,
+    subcategory: null,
+    type: p.type,
+    media: p.media,
+    description: p.description,
+  }));
+  const { error } = await supabase.from("projects").insert(copies);
+  if (error) return { error: error.message };
+  return { ok: true, count: copies.length };
+}
+
 /** Delete multiple projects at once (rows + their stored files). */
 export async function bulkDeleteProjectsAction(
   items: { id: string; media: string }[]

@@ -177,30 +177,26 @@ export async function moveItemsAction(
   return { ok: true };
 }
 
-/** Copy items to a different category (insert duplicate rows). */
+/** Copy items to a different category (insert duplicate rows). Returns inserted rows. */
 export async function copyItemsAction(
   ids: string[],
   targetCategory: string
-): Promise<{ ok: true; count: number } | { error: string }> {
+): Promise<{ ok: true; count: number; items: import("@/lib/types").Project[] } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
-  if (!ids.length) return { ok: true, count: 0 };
+  if (!ids.length) return { ok: true, count: 0, items: [] };
   const supabase = getSupabaseAdmin();
-  const { data, error: fetchErr } = await supabase
+  const { data: src, error: fetchErr } = await supabase
     .from("projects")
     .select("title, type, media, description")
     .in("id", ids);
   if (fetchErr) return { error: fetchErr.message };
-  const copies = (data ?? []).map((p) => ({
-    title: p.title,
-    category: targetCategory,
-    subcategory: null,
-    type: p.type,
-    media: p.media,
-    description: p.description,
+  const copies = (src ?? []).map((p) => ({
+    title: p.title, category: targetCategory, subcategory: null,
+    type: p.type, media: p.media, description: p.description,
   }));
-  const { error } = await supabase.from("projects").insert(copies);
+  const { data, error } = await supabase.from("projects").insert(copies).select();
   if (error) return { error: error.message };
-  return { ok: true, count: copies.length };
+  return { ok: true, count: copies.length, items: (data ?? []) as import("@/lib/types").Project[] };
 }
 
 /** Delete multiple projects at once (rows + their stored files). */

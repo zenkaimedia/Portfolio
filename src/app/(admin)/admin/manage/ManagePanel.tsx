@@ -525,6 +525,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [moveToOpen, setMoveToOpen] = useState(false);
 
+  const [recentlyPasted, setRecentlyPasted] = useState<Set<string>>(new Set());
   const itemScrollRef = useRef<HTMLDivElement>(null);
   const drag = useDrag(items, (p) => p.id, async (next) => {
     setItems(next);
@@ -550,18 +551,39 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
 
   async function doPaste() {
     if (!clipboard) return;
-    if (clipboard.op === "cut") {
-      const res = await moveItemsAction(clipboard.items.map((p) => p.id), category);
-      if ("error" in res) { setMsg(res.error); return; }
-      const moved = clipboard.items.map((p) => ({ ...p, category }));
-      setItems((prev) => [...prev, ...moved]);
-      onProjectsChange([...projects.filter((p) => !clipboard.items.find((c) => c.id === p.id)), ...moved]);
+
+    // Block duplicates: skip items whose media URL already exists in this folder
+    const existingMedias = new Set(items.map((p) => p.media));
+    const fresh = clipboard.items.filter((p) => !existingMedias.has(p.media));
+    const skipped = clipboard.items.length - fresh.length;
+
+    if (fresh.length === 0) {
+      setMsg(skipped > 0 ? "All items already exist in this folder — nothing pasted." : "Nothing to paste.");
       onClearClipboard();
-    } else {
-      const res = await copyItemsAction(clipboard.items.map((p) => p.id), category);
-      if ("error" in res) { setMsg(res.error); return; }
-      startTransition(() => router.refresh());
+      return;
     }
+
+    if (clipboard.op === "cut") {
+      const res = await moveItemsAction(fresh.map((p) => p.id), category);
+      if ("error" in res) { setMsg(res.error); return; }
+      const moved = fresh.map((p) => ({ ...p, category }));
+      setItems((prev) => [...prev, ...moved]);
+      onProjectsChange([...projects.filter((p) => !fresh.find((c) => c.id === p.id)), ...moved]);
+      // Highlight pasted items
+      setRecentlyPasted(new Set(moved.map((p) => p.id)));
+      setTimeout(() => setRecentlyPasted(new Set()), 2000);
+    } else {
+      const res = await copyItemsAction(fresh.map((p) => p.id), category);
+      if ("error" in res) { setMsg(res.error); return; }
+      // Add new items to state and highlight them
+      setItems((prev) => [...prev, ...res.items]);
+      setRecentlyPasted(new Set(res.items.map((p) => p.id)));
+      setTimeout(() => setRecentlyPasted(new Set()), 2000);
+    }
+
+    onClearClipboard(); // one-time paste — clipboard cleared regardless of op
+    if (skipped > 0) setMsg(`${fresh.length} pasted, ${skipped} skipped (already in folder).`);
+    startTransition(() => router.refresh());
   }
 
   function toggleSelect(id: string, e: React.MouseEvent) {
@@ -703,7 +725,15 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
         <div ref={itemScrollRef} className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {items.map((p) => (
-              <motion.div key={p.id} layout transition={{ type: "spring", stiffness: 500, damping: 40 }}>
+              <motion.div
+                key={p.id}
+                layout
+                transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                animate={recentlyPasted.has(p.id)
+                  ? { boxShadow: "0 0 0 3px #f0b429, 0 0 24px rgba(240,180,41,0.5)" }
+                  : { boxShadow: "0 0 0 0px transparent" }}
+                style={{ borderRadius: 12 }}
+              >
                 <div data-item>
                   <ItemCard
                     project={p}
@@ -724,7 +754,14 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
       ) : (
         <div ref={itemScrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-line">
           {items.map((p) => (
-            <motion.div key={p.id} layout transition={{ type: "spring", stiffness: 500, damping: 40 }}>
+            <motion.div
+              key={p.id}
+              layout
+              transition={{ type: "spring", stiffness: 500, damping: 40 }}
+              animate={recentlyPasted.has(p.id)
+                ? { backgroundColor: "rgba(240,180,41,0.08)" }
+                : { backgroundColor: "transparent" }}
+            >
               <div data-item>
                 <ItemRow
                   project={p}
@@ -762,15 +799,22 @@ export default function ManagePanel({ projects: initial, categories, subcategori
 
   async function handlePasteInto(targetCategory: string) {
     if (!clipboard) return;
+    // Deduplicate against target folder
+    const targetItems = projects.filter((p) => p.category === targetCategory);
+    const existingMedias = new Set(targetItems.map((p) => p.media));
+    const fresh = clipboard.items.filter((p) => !existingMedias.has(p.media));
+    if (!fresh.length) { setClipboard(null); return; }
+
     if (clipboard.op === "cut") {
-      const res = await moveItemsAction(clipboard.items.map((p) => p.id), targetCategory);
+      const res = await moveItemsAction(fresh.map((p) => p.id), targetCategory);
       if ("error" in res) return;
-      setProjects((prev) => prev.map((p) => clipboard.items.find((c) => c.id === p.id) ? { ...p, category: targetCategory } : p));
-      setClipboard(null);
+      setProjects((prev) => prev.map((p) => fresh.find((c) => c.id === p.id) ? { ...p, category: targetCategory } : p));
     } else {
-      const res = await copyItemsAction(clipboard.items.map((p) => p.id), targetCategory);
+      const res = await copyItemsAction(fresh.map((p) => p.id), targetCategory);
       if ("error" in res) return;
+      if ("items" in res) setProjects((prev) => [...prev, ...res.items]);
     }
+    setClipboard(null); // one-time paste
   }
 
   return (

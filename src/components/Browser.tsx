@@ -17,7 +17,7 @@ import ThemeToggle from "./ui/ThemeToggle";
 import MediaViewer from "./MediaViewer";
 import { screenshotUrl } from "@/lib/screenshot";
 import { transformImage } from "@/lib/image";
-import { PdfIcon } from "./ui/icons";
+import { PdfIcon, CloseIcon } from "./ui/icons";
 
 export default function Browser({
   projects,
@@ -33,6 +33,7 @@ export default function Browser({
   const flat = useMemo(() => flattenFiles(tree), [tree]);
 
   const [path, setPath] = useState<string[]>(initialPath);
+  const [pdfFile, setPdfFile] = useState<{ url: string; title: string } | null>(null);
 
   const { chain, file } = useMemo(() => resolvePath(tree, path), [tree, path]);
 
@@ -110,7 +111,11 @@ export default function Browser({
                 key={f.file.project.id}
                 item={f}
                 active={file?.project.id === f.file.project.id}
-                onSelect={() => navigate(f.path)}
+                onSelect={
+                  f.file.project.type === "pdf"
+                    ? () => setPdfFile({ url: f.file.project.media, title: f.file.project.title })
+                    : () => navigate(f.path)
+                }
               />
             ))}
           </div>
@@ -118,6 +123,17 @@ export default function Browser({
       )}
 
       {/* Media viewer */}
+      {/* Full-screen PDF viewer */}
+      <AnimatePresence>
+        {pdfFile && (
+          <PdfViewer
+            url={pdfFile.url}
+            title={pdfFile.title}
+            onClose={() => setPdfFile(null)}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {file && (
           <MediaViewer
@@ -151,7 +167,7 @@ function GridItem({
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.2 }}
-      onClick={project.type === "pdf" ? () => window.open(project.media, "_blank") : onSelect}
+      onClick={onSelect}
       className={`group relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black ring-2 transition-all duration-150 ${
         active ? "ring-gold" : "ring-transparent hover:ring-gold/40"
       }`}
@@ -213,5 +229,55 @@ function GridItem({
         </span>
       )}
     </motion.button>
+  );
+}
+
+/* ── Full-screen PDF viewer ──────────────────────────────────────────────── */
+function PdfViewer({
+  url,
+  title,
+  onClose,
+}: {
+  url: string;
+  title: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col bg-ink"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
+      {/* Header bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-line bg-panel/80 px-5 py-3 backdrop-blur">
+        <span className="truncate font-mono text-sm text-bone">{title}</span>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="ml-4 shrink-0 grid h-9 w-9 place-items-center rounded-full border border-line text-muted transition-colors hover:border-gold/50 hover:text-bone"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      {/* PDF iframe */}
+      <iframe
+        src={url}
+        title={title}
+        className="flex-1 w-full border-none"
+      />
+    </motion.div>
   );
 }

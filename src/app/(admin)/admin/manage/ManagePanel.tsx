@@ -575,8 +575,9 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
     } else {
       const res = await copyItemsAction(fresh.map((p) => p.id), category);
       if ("error" in res) { setMsg(res.error); return; }
-      // Add new items to state and highlight them
+      // Update both local items state AND the root projects state
       setItems((prev) => [...prev, ...res.items]);
+      onProjectsChange([...projects, ...res.items]);
       setRecentlyPasted(new Set(res.items.map((p) => p.id)));
       setTimeout(() => setRecentlyPasted(new Set()), 2000);
     }

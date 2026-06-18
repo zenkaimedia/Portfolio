@@ -125,12 +125,26 @@ function storagePathFromUrl(url: string): string | null {
   return decodeURIComponent(url.slice(i + marker.length));
 }
 
-async function removeFiles(medias: string[]) {
-  const paths = medias
+async function removeFiles(medias: string[], excludeIds: string[] = []) {
+  const supabase = getSupabaseAdmin();
+
+  // Only delete a storage file when NO other project still references it.
+  // This prevents deleting originals when a copy sharing the same URL is removed.
+  let query = supabase.from("projects").select("media").in("media", medias);
+  if (excludeIds.length > 0) {
+    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+  const { data: stillReferenced } = await query;
+  const referenced = new Set((stillReferenced ?? []).map((r: { media: string }) => r.media));
+
+  const safePaths = medias
+    .filter((m) => !referenced.has(m))
     .map(storagePathFromUrl)
     .filter((p): p is string => !!p);
-  if (paths.length === 0) return;
-  await getSupabaseAdmin().storage.from(BUCKET).remove(paths);
+
+  if (safePaths.length > 0) {
+    await getSupabaseAdmin().storage.from(BUCKET).remove(safePaths);
+  }
 }
 
 /** Update a project's text fields (also moves it between folders when the
@@ -205,8 +219,8 @@ export async function bulkDeleteProjectsAction(
 ): Promise<{ ok: true; deleted: number } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   if (!items.length) return { ok: true, deleted: 0 };
-  await removeFiles(items.map((i) => i.media));
   const ids = items.map((i) => i.id);
+  await removeFiles(items.map((i) => i.media), ids);
   const { error } = await getSupabaseAdmin()
     .from("projects")
     .delete()
@@ -222,7 +236,7 @@ export async function deleteProjectAction(
 ): Promise<{ ok: true } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   if (!id) return { error: "Missing id." };
-  await removeFiles([media]);
+  await removeFiles([media], [id]);
   const { error } = await getSupabaseAdmin()
     .from("projects")
     .delete()
@@ -283,7 +297,7 @@ export async function deleteFolderAction(input: {
   if (error) return { error: error.message };
 
   const rows = (data ?? []) as { id: string; media: string }[];
-  await removeFiles(rows.map((r) => r.media));
+  await removeFiles(rows.map((r) => r.media), rows.map((r) => r.id));
 
   let del = supabase.from("projects").delete().eq("category", input.category);
   if (input.subcategory !== null) {

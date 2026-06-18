@@ -21,39 +21,58 @@ export function getSupabase() {
 }
 
 const BASE_COLUMNS =
-  "id, title, category, subcategory, type, media, description, created_at, updated_at, parent_id";
+  "id, title, category, subcategory, type, media, description, created_at, updated_at";
 
 export async function fetchProjects(): Promise<Project[]> {
   const supabase = getSupabase();
+  const ORDER = [
+    { column: "category",    ascending: true },
+    { column: "subcategory", ascending: true, nullsFirst: true },
+    { column: "sort_order",  ascending: true },
+    { column: "created_at",  ascending: true },
+  ] as const;
 
-  // Preferred query (includes sort_order for manual ordering).
+  // Try with all optional columns (sort_order + parent_id).
+  const full = await supabase
+    .from("projects")
+    .select(`${BASE_COLUMNS}, sort_order, parent_id`)
+    .order("category",    { ascending: true })
+    .order("subcategory", { ascending: true, nullsFirst: true })
+    .order("sort_order",  { ascending: true })
+    .order("created_at",  { ascending: true });
+
+  if (!full.error) {
+    return (full.data ?? []) as Project[];
+  }
+
+  // Fallback: try with sort_order only (parent_id migration not yet run).
   const withOrder = await supabase
     .from("projects")
     .select(`${BASE_COLUMNS}, sort_order`)
-    .order("category", { ascending: true })
+    .order("category",    { ascending: true })
     .order("subcategory", { ascending: true, nullsFirst: true })
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("sort_order",  { ascending: true })
+    .order("created_at",  { ascending: true });
 
   if (!withOrder.error) {
-    return (withOrder.data ?? []) as Project[];
+    return (withOrder.data ?? []).map((row) => ({ ...(row as Omit<Project, "parent_id">), parent_id: null }));
   }
 
-  // Fallback for databases that haven't added the sort_order column yet —
-  // keeps the site working before the migration is run.
+  // Fallback: base columns only (sort_order migration not yet run either).
   const basic = await supabase
     .from("projects")
     .select(BASE_COLUMNS)
-    .order("category", { ascending: true })
+    .order("category",    { ascending: true })
     .order("subcategory", { ascending: true, nullsFirst: true })
-    .order("created_at", { ascending: true });
+    .order("created_at",  { ascending: true });
 
   if (basic.error) {
     throw new Error(`Supabase query failed: ${basic.error.message}`);
   }
   return (basic.data ?? []).map((row) => ({
-    ...(row as Omit<Project, "sort_order">),
+    ...(row as Omit<Project, "sort_order" | "parent_id">),
     sort_order: 0,
+    parent_id: null,
   }));
 }
 

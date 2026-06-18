@@ -50,7 +50,9 @@ export default async function PortfolioPage({
       />
     );
   } catch (err) {
+    // Re-throw Next.js internal errors (redirect, notFound, etc.) — they have a digest property
     if (isRedirectError(err)) throw err;
+    if (err && typeof err === "object" && "digest" in err) throw err;
     const message = err instanceof Error ? err.message : "Unknown error";
     return <SetupNotice message={message} />;
   }

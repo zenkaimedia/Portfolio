@@ -24,7 +24,7 @@ create table if not exists public.projects (
   updated_at timestamp without time zone null default now(),
   constraint projects_pkey primary key (id),
   constraint projects_type_check check (
-    type = any (array['image'::text, 'video'::text, 'website'::text])
+    type = any (array['image'::text, 'video'::text, 'website'::text, 'pdf'::text])
   )
 );
 

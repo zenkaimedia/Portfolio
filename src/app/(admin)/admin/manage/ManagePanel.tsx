@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import type { Project } from "@/lib/types";
 import { transformImage } from "@/lib/image";
+import { DownloadIcon } from "@/components/ui/icons";
 import {
   updateProjectAction,
   deleteProjectAction,
@@ -18,6 +19,55 @@ import {
 } from "../actions";
 
 const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
+
+/* ── Download helpers ────────────────────────────────────────────────────── */
+function getExt(url: string, fallback = "jpg") {
+  return url.split("?")[0].split(".").pop()?.toLowerCase() || fallback;
+}
+
+async function downloadSingleFile(project: Project, onProgress?: (s: string) => void) {
+  if (project.type === "website") return;
+  onProgress?.("Downloading…");
+  const ext = getExt(project.media, project.type === "video" ? "mp4" : project.type === "pdf" ? "pdf" : "jpg");
+  const filename = `${project.sort_order}.${ext}`;
+  const res = await fetch(project.media);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  onProgress?.("");
+}
+
+async function downloadFolder(folderName: string, items: Project[], onProgress?: (s: string) => void) {
+  const downloadable = items
+    .filter((p) => p.type !== "website")
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  if (!downloadable.length) return;
+
+  onProgress?.(`Preparing ${downloadable.length} files…`);
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
+  for (let i = 0; i < downloadable.length; i++) {
+    const p = downloadable[i];
+    onProgress?.(`Fetching ${i + 1} / ${downloadable.length}…`);
+    const ext = getExt(p.media, p.type === "video" ? "mp4" : p.type === "pdf" ? "pdf" : "jpg");
+    const res = await fetch(p.media);
+    const blob = await res.blob();
+    zip.file(`${p.sort_order}.${ext}`, blob);
+  }
+
+  onProgress?.("Building ZIP…");
+  const content = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${folderName}.zip`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  onProgress?.("");
+}
 type ViewMode = "grid" | "list";
 type NavState = { level: "folders" } | { level: "items"; category: string };
 type ClipboardState = { items: Project[]; op: "cut" | "copy" } | null;
@@ -339,12 +389,13 @@ function NewFolderCard({ onConfirm, onCancel }: { onConfirm: (name: string) => v
 
 /* ── Folder card ─────────────────────────────────────────────────────────── */
 function FolderCard({ name, count, imageUrl, isDragging, overSide, hasPaste, isDropTarget,
-  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext }: {
+  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext, onDownload }: {
   name: string; count: number; imageUrl?: string; isDragging: boolean;
   overSide: "before" | "after" | null; hasPaste: boolean; isDropTarget: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void; onDragEnd: () => void;
   onClick: () => void; onContext: (e: React.MouseEvent) => void;
+  onDownload: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -359,6 +410,14 @@ function FolderCard({ name, count, imageUrl, isDragging, overSide, hasPaste, isD
       <div className="absolute left-2 top-2 cursor-grab opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <span className="rounded bg-ink/70 px-1.5 py-0.5 font-mono text-[10px] text-muted backdrop-blur">⠿</span>
       </div>
+      {/* Download folder button */}
+      <button
+        onClick={onDownload}
+        className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-ink/80 text-muted opacity-0 backdrop-blur transition-all group-hover:opacity-100 hover:text-gold"
+        title={`Download ${name}.zip`}
+      >
+        <DownloadIcon />
+      </button>
       <div className="absolute inset-x-0 bottom-0 p-4">
         <h3 className="truncate font-display text-base font-bold text-white">{name}</h3>
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/50">{count} {count === 1 ? "item" : "items"}</p>
@@ -403,8 +462,19 @@ function ItemCard({ project, isDragging, overSide, isSelected, isCut,
           copy
         </span>
       )}
-      {/* Hover overlay */}
-      <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Hover overlay with action buttons */}
+      <div className="absolute inset-0 flex flex-col justify-between bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex justify-end gap-1.5 p-2">
+          {project.type !== "website" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); downloadSingleFile(project); }}
+              className="grid h-7 w-7 place-items-center rounded-full bg-ink/80 text-muted backdrop-blur transition-colors hover:text-gold"
+              title={`Download as ${project.sort_order}.ext`}
+            >
+              <DownloadIcon />
+            </button>
+          )}
+        </div>
         <p className="truncate px-3 pb-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-white">{project.title}</p>
       </div>
     </div>
@@ -436,6 +506,15 @@ function ItemRow({ project, isDragging, overSide, isSelected, isCut,
       {project.parent_id && <span className="hidden rounded-full border border-line bg-ink px-2 py-0.5 font-mono text-[9px] uppercase text-muted/60 sm:inline">copy</span>}
       {project.subcategory && <span className="hidden rounded-full border border-line px-2 py-0.5 font-mono text-[9px] text-muted sm:inline">{project.subcategory}</span>}
       <span className="hidden font-mono text-[9px] uppercase text-muted/60 md:block">{project.type}</span>
+      {project.type !== "website" && (
+        <button
+          onClick={(e) => { e.stopPropagation(); downloadSingleFile(project); }}
+          title={`Download as ${project.sort_order}.ext`}
+          className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-gold"
+        >
+          <DownloadIcon />
+        </button>
+      )}
     </div>
   );
 }
@@ -455,6 +534,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   const [renameVal, setRenameVal] = useState("");
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [folderDlStatus, setFolderDlStatus] = useState<Record<string, string>>({});
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [newFolder, setNewFolder] = useState(false);
 
@@ -553,6 +633,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
                   hasPaste={false} isDropTarget={false}
                   onDragStart={(e) => drag.handleStart(cat, e)} onDragOver={(e) => drag.handleOver(e, cat)}
                   onDrop={(e) => drag.handleDrop(e, cat)} onDragEnd={drag.handleEnd}
+                  onDownload={(e) => { e.stopPropagation(); downloadFolder(cat, catMap.get(cat) ?? [], (s) => setFolderDlStatus(prev => ({ ...prev, [cat]: s }))); }}
                   onClick={() => onNavigate(cat)}
                   onContext={(e) => openCtx(e, { kind: "folder", category: cat, count: catMap.get(cat)?.length ?? 0 })}
                 />
@@ -636,6 +717,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [moveToOpen, setMoveToOpen] = useState(false);
 
   const [itemSearch, setItemSearch] = useState("");
+  const [downloadStatus, setDownloadStatus] = useState("");
   const [recentlyPasted, setRecentlyPasted] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const itemScrollRef = useRef<HTMLDivElement>(null);
@@ -821,6 +903,17 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
         <span className="text-line">/</span>
         <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-bone">{category}</span>
         <span className="font-mono text-[10px] text-muted">({items.length})</span>
+
+        {/* Download All */}
+        <button
+          onClick={() => downloadFolder(category, items, setDownloadStatus)}
+          disabled={!!downloadStatus}
+          className="ml-auto flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-gold/40 hover:text-bone disabled:opacity-50"
+          title="Download all as ZIP (named by sort order)"
+        >
+          <DownloadIcon />
+          {downloadStatus || "Download All"}
+        </button>
 
         {/* Selection toolbar */}
         {selected.size > 0 && (

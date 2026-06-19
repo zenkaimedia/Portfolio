@@ -21,52 +21,96 @@ import {
 const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
 
 /* ── Download helpers ────────────────────────────────────────────────────── */
+type DlToast = { label: string; sub?: string; done?: boolean } | null;
+
 function getExt(url: string, fallback = "jpg") {
   return url.split("?")[0].split(".").pop()?.toLowerCase() || fallback;
 }
 
-async function downloadSingleFile(project: Project, onProgress?: (s: string) => void) {
-  if (project.type === "website") return;
-  onProgress?.("Downloading…");
-  const ext = getExt(project.media, project.type === "video" ? "mp4" : project.type === "pdf" ? "pdf" : "jpg");
-  const filename = `${(project.sort_order ?? 0) + 1}.${ext}`;
-  const res = await fetch(project.media);
-  const blob = await res.blob();
+function triggerSave(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
-  onProgress?.("");
 }
 
-async function downloadFolder(folderName: string, items: Project[], onProgress?: (s: string) => void) {
-  const downloadable = items
+async function downloadSingleFile(project: Project, setToast: (t: DlToast) => void) {
+  if (project.type === "website") return;
+  const ext = getExt(project.media, project.type === "video" ? "mp4" : project.type === "pdf" ? "pdf" : "jpg");
+  const filename = `${(project.sort_order ?? 0) + 1}.${ext}`;
+  setToast({ label: "Downloading…", sub: filename });
+  const res = await fetch(project.media);
+  const blob = await res.blob();
+  triggerSave(blob, filename);
+  setToast({ label: filename, sub: "Download complete", done: true });
+  setTimeout(() => setToast(null), 2500);
+}
+
+async function downloadFolder(folderName: string, items: Project[], setToast: (t: DlToast) => void) {
+  const sorted = items
     .filter((p) => p.type !== "website")
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  if (!downloadable.length) return;
+  if (!sorted.length) return;
 
-  onProgress?.(`Preparing ${downloadable.length} files…`);
+  setToast({ label: `${folderName}.zip`, sub: `Starting download…` });
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
-  for (let i = 0; i < downloadable.length; i++) {
-    const p = downloadable[i];
-    onProgress?.(`Fetching ${i + 1} / ${downloadable.length}…`);
-    const ext = getExt(p.media, p.type === "video" ? "mp4" : p.type === "pdf" ? "pdf" : "jpg");
-    const res = await fetch(p.media);
-    const blob = await res.blob();
-    zip.file(`${(p.sort_order ?? 0) + 1}.${ext}`, blob);
+  // Parallel batch fetching — 5 at a time for speed
+  const BATCH = 5;
+  let done = 0;
+  for (let i = 0; i < sorted.length; i += BATCH) {
+    const batch = sorted.slice(i, i + BATCH);
+    const fetched = await Promise.all(
+      batch.map(async (p) => {
+        const ext = getExt(p.media, p.type === "video" ? "mp4" : p.type === "pdf" ? "pdf" : "jpg");
+        const res = await fetch(p.media);
+        const blob = await res.blob();
+        return { name: `${(p.sort_order ?? 0) + 1}.${ext}`, blob };
+      })
+    );
+    fetched.forEach(({ name, blob }) => zip.file(name, blob));
+    done += batch.length;
+    setToast({ label: `${folderName}.zip`, sub: `${done} / ${sorted.length} files fetched…` });
   }
 
-  onProgress?.("Building ZIP…");
-  const content = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(content);
-  const a = document.createElement("a");
-  a.href = url; a.download = `${folderName}.zip`;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
-  onProgress?.("");
+  setToast({ label: `${folderName}.zip`, sub: "Building ZIP…" });
+  // level:1 = fastest compression
+  const content = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 1 } });
+  triggerSave(content, `${folderName}.zip`);
+  setToast({ label: `${folderName}.zip`, sub: `${sorted.length} files downloaded`, done: true });
+  setTimeout(() => setToast(null), 3000);
+}
+
+/* ── Download toast ──────────────────────────────────────────────────────── */
+function DownloadToast({ toast }: { toast: DlToast }) {
+  if (!toast) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 12, scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 400, damping: 32 }}
+      className="fixed bottom-6 right-6 z-[200] flex items-center gap-4 rounded-2xl border border-line bg-ink-2/95 px-5 py-4 shadow-2xl backdrop-blur-sm"
+    >
+      {toast.done ? (
+        <motion.span
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold/20 text-base text-gold"
+        >
+          ✓
+        </motion.span>
+      ) : (
+        <span className="h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-gold/20 border-t-gold" />
+      )}
+      <div className="min-w-0">
+        <p className="truncate font-mono text-[12px] font-medium text-bone">{toast.label}</p>
+        {toast.sub && <p className="font-mono text-[10px] text-muted">{toast.sub}</p>}
+      </div>
+    </motion.div>
+  );
 }
 type ViewMode = "grid" | "list";
 type NavState = { level: "folders" } | { level: "items"; category: string };
@@ -428,12 +472,13 @@ function FolderCard({ name, count, imageUrl, isDragging, overSide, hasPaste, isD
 
 /* ── Item card ───────────────────────────────────────────────────────────── */
 function ItemCard({ project, isDragging, overSide, isSelected, isCut,
-  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext }: {
+  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext, onSetToast }: {
   project: Project; isDragging: boolean; overSide: "before" | "after" | null;
   isSelected: boolean; isCut: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void; onDragEnd: () => void;
   onClick: (e: React.MouseEvent) => void; onContext: (e: React.MouseEvent) => void;
+  onSetToast: (t: DlToast) => void;
 }) {
   return (
     <div
@@ -467,9 +512,9 @@ function ItemCard({ project, isDragging, overSide, isSelected, isCut,
         <div className="flex justify-end gap-1.5 p-2">
           {project.type !== "website" && (
             <button
-              onClick={(e) => { e.stopPropagation(); downloadSingleFile(project); }}
+              onClick={(e) => { e.stopPropagation(); downloadSingleFile(project, onSetToast); }}
               className="grid h-7 w-7 place-items-center rounded-full bg-ink/80 text-muted backdrop-blur transition-colors hover:text-gold"
-              title={`Download as ${project.sort_order}.ext`}
+              title={`Download as ${(project.sort_order ?? 0) + 1}.ext`}
             >
               <DownloadIcon />
             </button>
@@ -483,12 +528,13 @@ function ItemCard({ project, isDragging, overSide, isSelected, isCut,
 
 /* ── Item list row ───────────────────────────────────────────────────────── */
 function ItemRow({ project, isDragging, overSide, isSelected, isCut,
-  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext }: {
+  onDragStart, onDragOver, onDrop, onDragEnd, onClick, onContext, onSetToast }: {
   project: Project; isDragging: boolean; overSide: "before" | "after" | null;
   isSelected: boolean; isCut: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void; onDragEnd: () => void;
   onClick: (e: React.MouseEvent) => void; onContext: (e: React.MouseEvent) => void;
+  onSetToast: (t: DlToast) => void;
 }) {
   return (
     <div
@@ -508,8 +554,8 @@ function ItemRow({ project, isDragging, overSide, isSelected, isCut,
       <span className="hidden font-mono text-[9px] uppercase text-muted/60 md:block">{project.type}</span>
       {project.type !== "website" && (
         <button
-          onClick={(e) => { e.stopPropagation(); downloadSingleFile(project); }}
-          title={`Download as ${project.sort_order}.ext`}
+          onClick={(e) => { e.stopPropagation(); downloadSingleFile(project, onSetToast); }}
+          title={`Download as ${(project.sort_order ?? 0) + 1}.ext`}
           className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-gold"
         >
           <DownloadIcon />
@@ -520,12 +566,13 @@ function ItemRow({ project, isDragging, overSide, isSelected, isCut,
 }
 
 /* ── Folder view ─────────────────────────────────────────────────────────── */
-function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, onProjectsChange, onPasteInto, onClearClipboard }: {
+function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, onProjectsChange, onPasteInto, onClearClipboard, onSetToast }: {
   projects: Project[]; folderOrder: Record<string, number>; viewMode: ViewMode;
   clipboard: ClipboardState;
   onNavigate: (cat: string) => void;
   onProjectsChange: (p: Project[]) => void;
   onPasteInto: (cat: string) => void;
+  onSetToast: (t: DlToast) => void;
   onClearClipboard: () => void;
 }) {
   const router = useRouter();
@@ -534,7 +581,6 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
   const [renameVal, setRenameVal] = useState("");
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
-  const [folderDlStatus, setFolderDlStatus] = useState<Record<string, string>>({});
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [newFolder, setNewFolder] = useState(false);
 
@@ -633,7 +679,7 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
                   hasPaste={false} isDropTarget={false}
                   onDragStart={(e) => drag.handleStart(cat, e)} onDragOver={(e) => drag.handleOver(e, cat)}
                   onDrop={(e) => drag.handleDrop(e, cat)} onDragEnd={drag.handleEnd}
-                  onDownload={(e) => { e.stopPropagation(); downloadFolder(cat, catMap.get(cat) ?? [], (s) => setFolderDlStatus(prev => ({ ...prev, [cat]: s }))); }}
+                  onDownload={(e) => { e.stopPropagation(); downloadFolder(cat, catMap.get(cat) ?? [], onSetToast); }}
                   onClick={() => onNavigate(cat)}
                   onContext={(e) => openCtx(e, { kind: "folder", category: cat, count: catMap.get(cat)?.length ?? 0 })}
                 />
@@ -697,13 +743,14 @@ function FolderView({ projects, folderOrder, viewMode, clipboard, onNavigate, on
 }
 
 /* ── Folder contents ─────────────────────────────────────────────────────── */
-function FolderContents({ projects, category, viewMode, clipboard, onBack, onProjectsChange, onSetClipboard, onClearClipboard, categories, subcategories }: {
+function FolderContents({ projects, category, viewMode, clipboard, onBack, onProjectsChange, onSetClipboard, onClearClipboard, onSetToast, categories, subcategories }: {
   projects: Project[]; category: string; viewMode: ViewMode;
   clipboard: ClipboardState;
   onBack: () => void;
   onProjectsChange: (p: Project[]) => void;
   onSetClipboard: (c: ClipboardState) => void;
   onClearClipboard: () => void;
+  onSetToast: (t: DlToast) => void;
   categories: string[]; subcategories: string[];
 }) {
   const router = useRouter();
@@ -717,7 +764,6 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
   const [moveToOpen, setMoveToOpen] = useState(false);
 
   const [itemSearch, setItemSearch] = useState("");
-  const [downloadStatus, setDownloadStatus] = useState("");
   const [recentlyPasted, setRecentlyPasted] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const itemScrollRef = useRef<HTMLDivElement>(null);
@@ -906,13 +952,12 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
 
         {/* Download All */}
         <button
-          onClick={() => downloadFolder(category, items, setDownloadStatus)}
-          disabled={!!downloadStatus}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-gold/40 hover:text-bone disabled:opacity-50"
+          onClick={() => downloadFolder(category, items, onSetToast)}
+          className="ml-auto flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 font-mono text-[11px] text-muted transition-colors hover:border-gold/40 hover:text-bone"
           title="Download all as ZIP (named by sort order)"
         >
           <DownloadIcon />
-          {downloadStatus || "Download All"}
+          Download All
         </button>
 
         {/* Selection toolbar */}
@@ -973,6 +1018,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
                     onDrop={(e) => drag.handleDrop(e, p.id)} onDragEnd={drag.handleEnd}
                     onClick={(e) => toggleSelect(p.id, e)}
                     onContext={(e) => openCtx(e, selected.has(p.id) && selected.size > 1 ? { kind: "selection", count: selected.size } : { kind: "item", project: p })}
+                    onSetToast={onSetToast}
                   />
                 </div>
               </motion.div>
@@ -1001,6 +1047,7 @@ function FolderContents({ projects, category, viewMode, clipboard, onBack, onPro
                   onDrop={(e) => drag.handleDrop(e, p.id)} onDragEnd={drag.handleEnd}
                   onClick={(e) => toggleSelect(p.id, e)}
                   onContext={(e) => openCtx(e, selected.has(p.id) && selected.size > 1 ? { kind: "selection", count: selected.size } : { kind: "item", project: p })}
+                  onSetToast={onSetToast}
                 />
               </div>
             </motion.div>
@@ -1023,6 +1070,7 @@ export default function ManagePanel({ projects: initial, categories, subcategori
 }) {
   const [projects, setProjects] = useState(initial);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [dlToast, setDlToast] = useState<DlToast>(null);
 
   // Keep local state in sync when the server refreshes data
   // (only applies on initial mount and hard navigations, not in-panel moves)
@@ -1101,6 +1149,7 @@ export default function ManagePanel({ projects: initial, categories, subcategori
           onProjectsChange={setProjects}
           onPasteInto={handlePasteInto}
           onClearClipboard={() => setClipboard(null)}
+          onSetToast={setDlToast}
         />
       ) : (
         <FolderContents
@@ -1109,9 +1158,15 @@ export default function ManagePanel({ projects: initial, categories, subcategori
           onProjectsChange={setProjects}
           onSetClipboard={setClipboard}
           onClearClipboard={() => setClipboard(null)}
+          onSetToast={setDlToast}
           categories={categories} subcategories={subcategories}
         />
       )}
+
+      {/* Global download toast */}
+      <AnimatePresence>
+        {dlToast && <DownloadToast toast={dlToast} />}
+      </AnimatePresence>
     </div>
   );
 }

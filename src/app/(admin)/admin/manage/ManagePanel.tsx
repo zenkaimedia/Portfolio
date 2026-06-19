@@ -29,7 +29,7 @@ async function downloadSingleFile(project: Project, onProgress?: (s: string) => 
   if (project.type === "website") return;
   onProgress?.("Downloading…");
   const ext = getExt(project.media, project.type === "video" ? "mp4" : project.type === "pdf" ? "pdf" : "jpg");
-  const filename = `${project.sort_order}.${ext}`;
+  const filename = `${(project.sort_order ?? 0) + 1}.${ext}`;
   const res = await fetch(project.media);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -56,7 +56,7 @@ async function downloadFolder(folderName: string, items: Project[], onProgress?:
     const ext = getExt(p.media, p.type === "video" ? "mp4" : p.type === "pdf" ? "pdf" : "jpg");
     const res = await fetch(p.media);
     const blob = await res.blob();
-    zip.file(`${p.sort_order}.${ext}`, blob);
+    zip.file(`${(p.sort_order ?? 0) + 1}.${ext}`, blob);
   }
 
   onProgress?.("Building ZIP…");

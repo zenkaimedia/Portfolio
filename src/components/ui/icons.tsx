@@ -133,6 +133,14 @@ export function DownloadIcon() {
   );
 }
 
+export function CompressIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base}>
+      <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+    </svg>
+  );
+}
+
 export function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" {...base}>

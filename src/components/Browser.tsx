@@ -122,6 +122,26 @@ export default function Browser({
         </div>
       )}
 
+      {/* Hidden preload for adjacent videos — buffers next/prev while watching */}
+      {file && (() => {
+        const prev = fileIndex > 0 ? visibleItems[fileIndex - 1] : null;
+        const next = fileIndex < visibleItems.length - 1 ? visibleItems[fileIndex + 1] : null;
+        return [prev, next].filter(Boolean).map((item) =>
+          item!.file.project.type === "video" ? (
+            <video
+              key={`preload-${item!.file.project.id}`}
+              src={item!.file.project.media}
+              preload="auto"
+              muted
+              playsInline
+              className="hidden"
+              aria-hidden="true"
+              controlsList="nodownload"
+            />
+          ) : null
+        );
+      })()}
+
       {/* Media viewer */}
       <AnimatePresence>
         {file && (
@@ -197,7 +217,7 @@ function GridItem({
                 el.preload = "metadata";
                 obs.disconnect();
               }
-            }, { rootMargin: "200px" });
+            }, { rootMargin: "600px" });
             obs.observe(el);
           }}
           className="h-full w-full object-cover"

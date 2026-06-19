@@ -159,6 +159,7 @@ function MediaContent({
         controls
         autoPlay
         playsInline
+        preload="auto"
         controlsList="nodownload"
         disablePictureInPicture
         disableRemotePlayback

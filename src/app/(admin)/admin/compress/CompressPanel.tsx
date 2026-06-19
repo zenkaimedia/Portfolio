@@ -184,20 +184,18 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
       const originalSize = sizes[project.media] ?? 0;
       const compressed = await compressImageBlob(project.media, quality, maxMB);
 
-      // Only upload if it's actually smaller
+      // Skip if result is not actually smaller (and no max-size target was set)
       if (compressed.size >= originalSize && !maxMB) {
         setStatus((prev) => ({ ...prev, [project.id]: "skipped" }));
         return false;
       }
 
-      // Get the new WebP path (change extension)
-      const webpPath = storagePath.replace(/\.[^.]+$/, ".webp");
-
-      // Get signed upload URL
-      const signed = await getOverwriteUploadUrlAction(webpPath);
+      // Upload WebP content to the SAME storage path with upsert=true.
+      // This atomically replaces the original — same URL, DB needs no update,
+      // and the old file is gone. No orphaned files.
+      const signed = await getOverwriteUploadUrlAction(storagePath);
       if ("error" in signed) throw new Error(signed.error);
 
-      // Upload compressed blob
       const { error } = await supabaseBrowser.storage
         .from(MEDIA_BUCKET)
         .uploadToSignedUrl(signed.path, signed.token, compressed, {
@@ -206,12 +204,13 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
 
       if (error) throw new Error(error.message);
 
-      const byteSaved = originalSize - compressed.size;
+      const byteSaved = Math.max(0, originalSize - compressed.size);
       setSaved((prev) => ({ ...prev, [project.id]: byteSaved }));
       setSizes((prev) => ({ ...prev, [project.media]: compressed.size }));
       setStatus((prev) => ({ ...prev, [project.id]: "done" }));
       return true;
-    } catch {
+    } catch (err) {
+      console.error("Compress failed:", err);
       setStatus((prev) => ({ ...prev, [project.id]: "error" }));
       return false;
     }

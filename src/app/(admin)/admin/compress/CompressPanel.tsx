@@ -4,7 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { Project } from "@/lib/types";
 import { supabaseBrowser, MEDIA_BUCKET } from "@/lib/supabase/client";
-import { storagePathFromUrl, getOverwriteUploadUrlAction } from "./actions";
+import { getOverwriteUploadUrlAction } from "./actions";
+
+function storagePathFromUrl(url: string): string | null {
+  const marker = "/object/public/portfolio/";
+  const i = url.indexOf(marker);
+  if (i === -1) return null;
+  return decodeURIComponent(url.slice(i + marker.length));
+}
 import { transformImage } from "@/lib/image";
 
 /* ── Types ───────────────────────────────────────────────────────────────── */

@@ -163,7 +163,7 @@ function MediaContent({
         disablePictureInPicture
         disableRemotePlayback
         onContextMenu={(e) => e.preventDefault()}
-        className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+        className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-xl shadow-2xl md:max-h-[88vh] md:max-w-[75vw]"
       />
     );
   }

@@ -63,11 +63,12 @@ async function downloadFolder(folderName: string, items: Project[], setToast: (t
   for (let i = 0; i < sorted.length; i += BATCH) {
     const batch = sorted.slice(i, i + BATCH);
     const fetched = await Promise.all(
-      batch.map(async (p) => {
+      batch.map(async (p, batchIdx) => {
+        const globalIdx = i + batchIdx; // position in sorted array → sequential name
         const ext = getExt(p.media, p.type === "video" ? "mp4" : p.type === "pdf" ? "pdf" : "jpg");
         const res = await fetch(p.media);
         const blob = await res.blob();
-        return { name: `${(p.sort_order ?? 0) + 1}.${ext}`, blob };
+        return { name: `${globalIdx + 1}.${ext}`, blob };
       })
     );
     fetched.forEach(({ name, blob }) => zip.file(name, blob));

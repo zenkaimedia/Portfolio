@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
 import { isAuthed } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
@@ -9,6 +10,7 @@ export type StorageFileInfo = {
   path: string;
   size: number;
   mimetype: string;
+  lastModified: string;
 };
 
 export type StorageStats = {
@@ -33,53 +35,68 @@ function storagePathFromUrl(url: string): string | null {
   return decodeURIComponent(url.slice(i + marker.length));
 }
 
-type RawFile = { name: string; metadata: Record<string, unknown> | null; updated_at?: string };
+/** Query storage.objects directly — same data the Supabase dashboard shows. */
+async function fetchAllStorageObjects(): Promise<StorageFileInfo[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY env var.");
 
-async function listAllFiles(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  prefix = "",
-  depth = 0
-): Promise<StorageFileInfo[]> {
-  if (depth > 6) return []; // safety limit
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .list(prefix || undefined, { limit: 1000, sortBy: { column: "name", order: "asc" } });
+  // Use the storage schema directly — bypasses RLS, reads the raw objects table
+  const storageDb = createClient(url, key, {
+    db: { schema: "storage" },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-  if (error || !data) return [];
+  // Paginate to get every object (no 1000-item limit this way)
+  const PAGE = 1000;
+  let offset = 0;
+  const all: StorageFileInfo[] = [];
 
-  const files: StorageFileInfo[] = [];
-  for (const item of data as RawFile[]) {
-    const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
-    if (item.metadata) {
-      // It's a file
-      files.push({
-        path: fullPath,
-        size: (item.metadata.size as number) ?? 0,
-        mimetype: (item.metadata.mimetype as string) ?? "application/octet-stream",
+  while (true) {
+    const { data, error } = await storageDb
+      .from("objects")
+      .select("name, metadata, updated_at")
+      .eq("bucket_id", BUCKET)
+      .not("metadata", "is", null) // files only, not folder placeholders
+      .range(offset, offset + PAGE - 1);
+
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+
+    for (const obj of data as { name: string; metadata: Record<string, unknown>; updated_at: string }[]) {
+      all.push({
+        path: obj.name,
+        size: (obj.metadata?.size as number) ?? 0,
+        mimetype: (obj.metadata?.mimetype as string) ?? "application/octet-stream",
+        lastModified: obj.updated_at ?? "",
       });
-    } else {
-      // It's a folder — recurse
-      const sub = await listAllFiles(supabase, fullPath, depth + 1);
-      files.push(...sub);
     }
+
+    if (data.length < PAGE) break;
+    offset += PAGE;
   }
-  return files;
+
+  return all;
 }
 
 /* ── Actions ─────────────────────────────────────────────────────────────── */
 export async function getStorageStatsAction(): Promise<StorageStats | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
 
-  const supabase = getSupabaseAdmin();
+  let allFiles: StorageFileInfo[];
+  try {
+    allFiles = await fetchAllStorageObjects();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to read storage." };
+  }
 
-  const [allFiles, projectsRes] = await Promise.all([
-    listAllFiles(supabase),
-    supabase.from("projects").select("media"),
-  ]);
+  // Cross-reference with projects to find orphans
+  const { data: projects } = await getSupabaseAdmin()
+    .from("projects")
+    .select("media");
 
-  // Build set of paths referenced by projects
   const referenced = new Set<string>();
-  for (const p of (projectsRes.data ?? []) as { media: string }[]) {
+  for (const p of (projects ?? []) as { media: string }[]) {
     const path = storagePathFromUrl(p.media);
     if (path) referenced.add(path);
   }

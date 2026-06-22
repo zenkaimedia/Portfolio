@@ -19,12 +19,14 @@ export default function AdminForm({
   subcategories: string[];
 }) {
   const [type, setType] = useState<"image" | "video" | "website" | "pdf">("image");
+  const [videoMode, setVideoMode] = useState<"upload" | "url">("upload");
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const isFileType = type === "image" || type === "video" || type === "pdf";
+  const isExternalVideo = type === "video" && videoMode === "url";
+  const isFileType = (type === "image" || type === "video" || type === "pdf") && !isExternalVideo;
   const isMulti = selectedFiles.length > 1;
 
   async function uploadOne(
@@ -127,6 +129,22 @@ export default function AdminForm({
             ? `${selectedFiles.length} files uploaded successfully.`
             : `"${title}" added.`,
         });
+      } else if (isExternalVideo) {
+        // External video URL (YouTube, Vimeo, direct CDN link)
+        if (!title) { setStatus({ state: "error", msg: "Title is required." }); return; }
+        if (!websiteUrl) { setStatus({ state: "error", msg: "Please enter the video URL." }); return; }
+        setStatus({ state: "busy", msg: "Saving project…" });
+        const res = await createProjectAction({
+          title, category, subcategory,
+          type: "video", // stored as video — viewer detects YouTube/Vimeo/native
+          media: websiteUrl,
+          description,
+        });
+        if ("error" in res) { setStatus({ state: "error", msg: res.error }); return; }
+        setStatus({ state: "ok", msg: `"${title}" added.` });
+        formRef.current?.reset();
+        setVideoMode("upload");
+        return;
       } else {
         // website
         if (!title) {
@@ -215,6 +233,7 @@ export default function AdminForm({
           onChange={(e) => {
             setType(e.target.value as typeof type);
             setSelectedFiles([]);
+            setVideoMode("upload");
             if (fileRef.current) fileRef.current.value = "";
           }}
           className={inputCls}
@@ -225,6 +244,26 @@ export default function AdminForm({
           <option value="pdf">PDF</option>
         </select>
       </Field>
+
+      {/* Video source toggle */}
+      {type === "video" && (
+        <div className="flex gap-2">
+          {(["upload", "url"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setVideoMode(m); setSelectedFiles([]); if (fileRef.current) fileRef.current.value = ""; }}
+              className={`flex-1 rounded-xl border py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
+                videoMode === m
+                  ? "border-gold/40 bg-gold/10 text-gold-soft"
+                  : "border-line text-muted hover:text-bone"
+              }`}
+            >
+              {m === "upload" ? "📁 Upload File" : "🔗 External URL"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isFileType ? (
         <Field label={type === "video" ? "Video files" : type === "pdf" ? "PDF files" : "Image files"}>
@@ -259,6 +298,18 @@ export default function AdminForm({
               </ul>
             </div>
           )}
+        </Field>
+      ) : isExternalVideo ? (
+        <Field label="Video URL">
+          <input
+            name="url"
+            type="url"
+            className={inputCls}
+            placeholder="https://youtu.be/... or https://vimeo.com/... or direct .mp4 link"
+          />
+          <p className="mt-2 font-mono text-[10px] text-muted">
+            Supports YouTube, Vimeo, or any direct video link. Your branded portfolio URL hides the original source.
+          </p>
         </Field>
       ) : (
         <Field label="Website URL">

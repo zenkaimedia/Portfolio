@@ -6,6 +6,7 @@ import type { FileNode } from "@/lib/types";
 import { CloseIcon, ChevronRight } from "./ui/icons";
 import { transformImage } from "@/lib/image";
 import { screenshotUrl } from "@/lib/screenshot";
+import { getVideoProvider, getEmbedUrl } from "@/lib/video";
 
 const WATERMARK_TILE =
   "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='220'%20height='140'%3E%3Ctext%20x='110'%20y='75'%20fill='%23ffffff'%20fill-opacity='0.14'%20font-family='monospace'%20font-size='15'%20font-weight='700'%20letter-spacing='2'%20text-anchor='middle'%20transform='rotate(-28%20110%2075)'%3EZENKAI%20MEDIA%3C/text%3E%3C/svg%3E";
@@ -152,6 +153,26 @@ function MediaContent({
   const { project } = file;
 
   if (project.type === "video") {
+    const provider = getVideoProvider(project.media);
+    const embedUrl = getEmbedUrl(project.media);
+
+    // YouTube or Vimeo — use iframe embed
+    if (embedUrl) {
+      return (
+        <iframe
+          key={project.id}
+          src={embedUrl}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          onClick={(e) => e.stopPropagation()}
+          className="h-auto w-auto max-h-[85vh] max-w-[92vw] rounded-xl shadow-2xl md:max-h-[88vh] md:max-w-[75vw]"
+          style={{ aspectRatio: "16/9", minWidth: "min(85vw, 640px)" }}
+          title={project.title}
+        />
+      );
+    }
+
+    // Native video (Supabase storage or direct CDN link)
     return (
       <video
         key={project.id}

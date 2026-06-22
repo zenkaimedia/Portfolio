@@ -17,6 +17,7 @@ import ThemeToggle from "./ui/ThemeToggle";
 import MediaViewer from "./MediaViewer";
 import { screenshotUrl } from "@/lib/screenshot";
 import { transformImage } from "@/lib/image";
+import { getVideoProvider, getVideoThumbnail } from "@/lib/video";
 import { PdfIcon } from "./ui/icons";
 
 export default function Browser({
@@ -196,33 +197,49 @@ function GridItem({
           className="h-full w-full select-none object-cover transition-transform duration-300 group-hover:scale-105"
         />
       )}
-      {project.type === "video" && (
-        <video
-          src={priority ? project.media : undefined}
-          data-src={!priority ? project.media : undefined}
-          muted
-          playsInline
-          preload={priority ? "metadata" : "none"}
-          controlsList="nodownload"
-          disablePictureInPicture
-          onContextMenu={(e) => e.preventDefault()}
-          onLoadedMetadata={(e) => {
-            try { e.currentTarget.currentTime = 0.1; } catch { /* ignore */ }
-          }}
-          ref={(el) => {
-            if (!el || priority) return;
-            const obs = new IntersectionObserver(([entry]) => {
-              if (entry.isIntersecting) {
-                el.src = el.dataset.src ?? "";
-                el.preload = "metadata";
-                obs.disconnect();
-              }
-            }, { rootMargin: "600px" });
-            obs.observe(el);
-          }}
-          className="h-full w-full object-cover"
-        />
-      )}
+      {project.type === "video" && (() => {
+        const provider = getVideoProvider(project.media);
+        const thumb = getVideoThumbnail(project.media);
+
+        // YouTube / Vimeo → static thumbnail image
+        if (provider !== "native") {
+          return thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={thumb} alt={project.title} loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-panel/80 text-2xl">▶</div>
+          );
+        }
+
+        // Native video element for Supabase / direct CDN
+        return (
+          <video
+            src={priority ? project.media : undefined}
+            data-src={!priority ? project.media : undefined}
+            muted
+            playsInline
+            preload={priority ? "metadata" : "none"}
+            controlsList="nodownload"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
+            onLoadedMetadata={(e) => {
+              try { e.currentTarget.currentTime = 0.1; } catch { /* ignore */ }
+            }}
+            ref={(el) => {
+              if (!el || priority) return;
+              const obs = new IntersectionObserver(([entry]) => {
+                if (entry.isIntersecting) {
+                  el.src = el.dataset.src ?? "";
+                  el.preload = "metadata";
+                  obs.disconnect();
+                }
+              }, { rootMargin: "600px" });
+              obs.observe(el);
+            }}
+            className="h-full w-full object-cover"
+          />
+        );
+      })()}
       {project.type === "website" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

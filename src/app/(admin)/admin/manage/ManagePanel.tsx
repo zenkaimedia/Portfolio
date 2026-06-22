@@ -1079,17 +1079,15 @@ export default function ManagePanel({ projects: initial, categories, subcategori
   const [clipboard, setClipboard] = useState<ClipboardState>(null);
 
   // Derive initial nav from current URL
+  // Use ?folder=... query param so /admin/manage always matches the Next.js route
   const [nav, setNav] = useState<NavState>(() => {
     if (typeof window === "undefined") return { level: "folders" };
-    const match = window.location.pathname.match(/^\/admin\/manage\/(.+)$/);
-    return match
-      ? { level: "items", category: decodeURIComponent(match[1]) }
-      : { level: "folders" };
+    const folder = new URLSearchParams(window.location.search).get("folder");
+    return folder ? { level: "items", category: folder } : { level: "folders" };
   });
 
-  // Sync URL when nav changes
   function goToFolder(category: string) {
-    window.history.pushState({}, "", `/admin/manage/${encodeURIComponent(category)}`);
+    window.history.pushState({}, "", `/admin/manage?folder=${encodeURIComponent(category)}`);
     setNav({ level: "items", category });
   }
   function goBack() {
@@ -1097,11 +1095,10 @@ export default function ManagePanel({ projects: initial, categories, subcategori
     setNav({ level: "folders" });
   }
 
-  // Browser back/forward button support
   useEffect(() => {
     const onPop = () => {
-      const match = window.location.pathname.match(/^\/admin\/manage\/(.+)$/);
-      setNav(match ? { level: "items", category: decodeURIComponent(match[1]) } : { level: "folders" });
+      const folder = new URLSearchParams(window.location.search).get("folder");
+      setNav(folder ? { level: "items", category: folder } : { level: "folders" });
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);

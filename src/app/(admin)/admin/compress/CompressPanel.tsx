@@ -17,7 +17,6 @@ import { transformImage } from "@/lib/image";
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type FileSizeMap = Record<string, number | null>; // media url → bytes
 type CompressStatus = Record<string, "idle" | "compressing" | "done" | "error" | "skipped">;
-type TypeFilter = "all" | "image" | "video" | "pdf";
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function formatBytes(b: number): string {
@@ -119,7 +118,6 @@ function CompressToast({ toast }: { toast: Toast }) {
 
 /* ── Main panel ──────────────────────────────────────────────────────────── */
 export default function CompressPanel({ projects }: { projects: Project[] }) {
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [quality, setQuality] = useState(75);
   const [maxMB, setMaxMB] = useState<number | null>(null);
   const [sizes, setSizes] = useState<FileSizeMap>({});
@@ -129,23 +127,17 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
   const [toast, setToast] = useState<Toast>(null);
   const abortRef = useRef(false);
 
-  // Deduplicate by media URL
-  const unique = projects.filter((p, i, arr) =>
-    arr.findIndex((x) => x.media === p.media) === i && p.type !== "website"
+  // Images only, deduplicated by media URL
+  const filtered = projects.filter((p, i, arr) =>
+    p.type === "image" && arr.findIndex((x) => x.media === p.media) === i
   );
-
-  const filtered = unique.filter((p) =>
-    typeFilter === "all" || p.type === typeFilter
-  );
-
-  const imageProjects = filtered.filter((p) => p.type === "image");
-  const compressible = filtered.filter((p) => p.type === "image");
+  const compressible = filtered;
 
   // Fetch file sizes via HEAD requests
   useEffect(() => {
     let cancelled = false;
     async function loadSizes() {
-      const toFetch = unique.filter((p) => sizes[p.media] === undefined);
+      const toFetch = filtered.filter((p) => sizes[p.media] === undefined);
       for (const p of toFetch) {
         if (cancelled) break;
         try {
@@ -159,7 +151,7 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
     }
     loadSizes();
     return () => { cancelled = true; };
-  }, [unique.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -238,11 +230,6 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
     setTimeout(() => setToast(null), 3000);
   }
 
-  const counts = {
-    image: unique.filter((p) => p.type === "image").length,
-    video: unique.filter((p) => p.type === "video").length,
-    pdf: unique.filter((p) => p.type === "pdf").length,
-  };
 
   const qualityLabel = quality >= 85 ? "High quality" : quality >= 70 ? "Balanced (recommended)" : quality >= 55 ? "Smaller size" : "Maximum compression";
   const qualityColor = quality >= 85 ? "text-gold-soft" : quality >= 70 ? "text-gold" : quality >= 55 ? "text-ember/80" : "text-ember";
@@ -312,27 +299,13 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
-          {/* Type filter */}
-          {(["all", "image", "video", "pdf"] as TypeFilter[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className={`rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors ${
-                typeFilter === t ? "bg-gold/15 text-gold" : "text-muted hover:text-bone"
-              }`}
-            >
-              {t === "all" ? `All (${unique.length})` : `${t} (${counts[t as keyof typeof counts]})`}
-            </button>
-          ))}
-
-          {typeFilter !== "video" && typeFilter !== "pdf" && (
-            <button
-              onClick={selectAllImages}
-              className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted hover:text-bone"
-            >
-              {compressible.every((p) => selected.has(p.id)) ? "Deselect all" : "Select all images"}
-            </button>
-          )}
+            <span className="font-mono text-[11px] text-muted">{filtered.length} image{filtered.length !== 1 ? "s" : ""}</span>
+          <button
+            onClick={selectAllImages}
+            className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted hover:text-bone"
+          >
+            {compressible.every((p) => selected.has(p.id)) ? "Deselect all" : "Select all"}
+          </button>
 
           {/* Mobile compress button */}
           {selectedImages.length > 0 && (
@@ -357,33 +330,25 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
             const rec = getRec(sizeBytes, p.type);
             const st = status[p.id] ?? "idle";
             const savedBytes = saved[p.id];
-            const isImg = p.type === "image";
 
             return (
               <div
                 key={p.id}
-                className={`flex items-center gap-3 border-b border-line/60 px-4 py-3.5 transition-colors last:border-b-0 ${isImg ? "hover:bg-white/[0.02]" : ""}`}
+                className="flex items-center gap-3 border-b border-line/60 px-4 py-3.5 transition-colors last:border-b-0 hover:bg-white/[0.02]"
               >
-                {/* Checkbox (images only) */}
-                {isImg ? (
-                  <span
-                    onClick={() => toggleSelect(p.id)}
-                    className={`grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded border transition-colors ${
-                      selected.has(p.id) ? "border-gold bg-gold text-ink" : "border-line hover:border-muted/60"
-                    }`}
-                  >
-                    {selected.has(p.id) && "✓"}
-                  </span>
-                ) : (
-                  <span className="h-5 w-5 shrink-0" />
-                )}
+                {/* Checkbox */}
+                <span
+                  onClick={() => toggleSelect(p.id)}
+                  className={`grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded border transition-colors ${
+                    selected.has(p.id) ? "border-gold bg-gold text-ink" : "border-line hover:border-muted/60"
+                  }`}
+                >
+                  {selected.has(p.id) && "✓"}
+                </span>
 
                 {/* Thumbnail */}
                 <span className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded border border-line bg-black">
-                  {p.type === "image"
-                    ? <img src={transformImage(p.media, 80, 60)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                    : <span className="font-mono text-[8px] uppercase text-muted">{p.type.slice(0, 3)}</span>
-                  }
+                  <img src={transformImage(p.media, 80, 60)} alt="" loading="lazy" className="h-full w-full object-cover" />
                 </span>
 
                 {/* Name + category */}
@@ -408,20 +373,14 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
                 {/* Recommendation */}
                 <div className="hidden w-36 shrink-0 text-right md:block">
                   <span className={`font-mono text-[10px] ${rec.color}`}>{rec.label}</span>
-                  {sizeBytes && isImg && st === "idle" && (
+                  {sizeBytes && st === "idle" && (
                     <p className="font-mono text-[9px] text-muted/60">{estimateSavings(sizeBytes, quality)}</p>
                   )}
                 </div>
 
                 {/* Status / action */}
                 <div className="shrink-0 w-24 text-right">
-                  {!isImg ? (
-                    p.type === "video" ? (
-                      <a href="https://handbrake.fr" target="_blank" rel="noreferrer" className="font-mono text-[10px] text-muted underline hover:text-bone">HandBrake ↗</a>
-                    ) : (
-                      <a href="https://ilovepdf.com/compress_pdf" target="_blank" rel="noreferrer" className="font-mono text-[10px] text-muted underline hover:text-bone">ilovepdf ↗</a>
-                    )
-                  ) : st === "idle" ? (
+                  {st === "idle" ? (
                     <button
                       onClick={() => {
                         setSelected((prev) => { const n = new Set(prev); n.add(p.id); return n; });

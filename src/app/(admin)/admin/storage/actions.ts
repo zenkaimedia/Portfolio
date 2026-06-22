@@ -1,6 +1,5 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
 import { isAuthed } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
@@ -35,41 +34,51 @@ function storagePathFromUrl(url: string): string | null {
   return decodeURIComponent(url.slice(i + marker.length));
 }
 
-/** Query storage.objects directly — same data the Supabase dashboard shows. */
+/** Query storage.objects via PostgREST Accept-Profile header — same source as Supabase dashboard. */
 async function fetchAllStorageObjects(): Promise<StorageFileInfo[]> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY env var.");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
 
-  // Use the storage schema directly — bypasses RLS, reads the raw objects table
-  const storageDb = createClient(url, key, {
-    db: { schema: "storage" },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  // Paginate to get every object (no 1000-item limit this way)
   const PAGE = 1000;
   let offset = 0;
   const all: StorageFileInfo[] = [];
 
   while (true) {
-    const { data, error } = await storageDb
-      .from("objects")
-      .select("name, metadata, updated_at")
-      .eq("bucket_id", BUCKET)
-      .not("metadata", "is", null) // files only, not folder placeholders
-      .range(offset, offset + PAGE - 1);
+    // PostgREST supports switching to non-public schemas via Accept-Profile header
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/objects?bucket_id=eq.${BUCKET}&metadata=not.is.null&select=name,metadata,updated_at&limit=${PAGE}&offset=${offset}`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Accept-Profile": "storage", // query the storage schema
+        },
+      }
+    );
 
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Storage query failed: ${res.status} ${text}`);
+    }
 
-    for (const obj of data as { name: string; metadata: Record<string, unknown>; updated_at: string }[]) {
-      all.push({
-        path: obj.name,
-        size: (obj.metadata?.size as number) ?? 0,
-        mimetype: (obj.metadata?.mimetype as string) ?? "application/octet-stream",
-        lastModified: obj.updated_at ?? "",
-      });
+    const data = (await res.json()) as {
+      name: string;
+      metadata: { size?: number; mimetype?: string } | null;
+      updated_at: string;
+    }[];
+
+    if (!data.length) break;
+
+    for (const obj of data) {
+      if (obj.metadata) {
+        all.push({
+          path: obj.name,
+          size: obj.metadata.size ?? 0,
+          mimetype: obj.metadata.mimetype ?? "application/octet-stream",
+          lastModified: obj.updated_at ?? "",
+        });
+      }
     }
 
     if (data.length < PAGE) break;

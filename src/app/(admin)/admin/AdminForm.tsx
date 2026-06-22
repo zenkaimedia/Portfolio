@@ -18,15 +18,14 @@ export default function AdminForm({
   categories: string[];
   subcategories: string[];
 }) {
-  const [type, setType] = useState<"image" | "video" | "website" | "pdf">("image");
-  const [videoMode, setVideoMode] = useState<"upload" | "url">("upload");
+  const [type, setType] = useState<"image" | "video" | "website" | "pdf" | "redirect">("image");
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const isExternalVideo = type === "video" && videoMode === "url";
-  const isFileType = (type === "image" || type === "video" || type === "pdf") && !isExternalVideo;
+  const isFileType = type === "image" || type === "video" || type === "pdf";
+  const isUrlType = type === "website" || type === "redirect";
   const isMulti = selectedFiles.length > 1;
 
   async function uploadOne(
@@ -129,30 +128,14 @@ export default function AdminForm({
             ? `${selectedFiles.length} files uploaded successfully.`
             : `"${title}" added.`,
         });
-      } else if (isExternalVideo) {
-        // External video URL (YouTube, Vimeo, direct CDN link)
-        if (!title) { setStatus({ state: "error", msg: "Title is required." }); return; }
-        if (!websiteUrl) { setStatus({ state: "error", msg: "Please enter the video URL." }); return; }
-        setStatus({ state: "busy", msg: "Saving project…" });
-        const res = await createProjectAction({
-          title, category, subcategory,
-          type: "video", // stored as video — viewer detects YouTube/Vimeo/native
-          media: websiteUrl,
-          description,
-        });
-        if ("error" in res) { setStatus({ state: "error", msg: res.error }); return; }
-        setStatus({ state: "ok", msg: `"${title}" added.` });
-        formRef.current?.reset();
-        setVideoMode("upload");
-        return;
       } else {
-        // website
+        // website or redirect
         if (!title) {
           setStatus({ state: "error", msg: "Title is required." });
           return;
         }
         if (!websiteUrl) {
-          setStatus({ state: "error", msg: "Please enter the website URL." });
+          setStatus({ state: "error", msg: type === "redirect" ? "Please enter the destination URL." : "Please enter the website URL." });
           return;
         }
         setStatus({ state: "busy", msg: "Saving project…" });
@@ -233,7 +216,6 @@ export default function AdminForm({
           onChange={(e) => {
             setType(e.target.value as typeof type);
             setSelectedFiles([]);
-            setVideoMode("upload");
             if (fileRef.current) fileRef.current.value = "";
           }}
           className={inputCls}
@@ -242,26 +224,13 @@ export default function AdminForm({
           <option value="video">Video</option>
           <option value="website">Website</option>
           <option value="pdf">PDF</option>
+          <option value="redirect">Redirect URL</option>
         </select>
       </Field>
 
-      {/* Video source toggle */}
-      {type === "video" && (
-        <div className="flex gap-2">
-          {(["upload", "url"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setVideoMode(m); setSelectedFiles([]); if (fileRef.current) fileRef.current.value = ""; }}
-              className={`flex-1 rounded-xl border py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
-                videoMode === m
-                  ? "border-gold/40 bg-gold/10 text-gold-soft"
-                  : "border-line text-muted hover:text-bone"
-              }`}
-            >
-              {m === "upload" ? "📁 Upload File" : "🔗 External URL"}
-            </button>
-          ))}
+      {type === "redirect" && (
+        <div className="rounded-xl border border-gold/20 bg-gold/5 px-4 py-3 font-mono text-[11px] text-muted">
+          Creates a branded link that instantly redirects clients to any URL — Google Drive, YouTube, Notion, etc.
         </div>
       )}
 
@@ -299,16 +268,16 @@ export default function AdminForm({
             </div>
           )}
         </Field>
-      ) : isExternalVideo ? (
-        <Field label="Video URL">
+      ) : type === "redirect" ? (
+        <Field label="Destination URL">
           <input
             name="url"
             type="url"
             className={inputCls}
-            placeholder="https://youtu.be/... or https://vimeo.com/... or direct .mp4 link"
+            placeholder="https://drive.google.com/file/d/... or any URL"
           />
           <p className="mt-2 font-mono text-[10px] text-muted">
-            Supports YouTube, Vimeo, or any direct video link. Your branded portfolio URL hides the original source.
+            Clients who open your branded link will be sent here instantly.
           </p>
         </Field>
       ) : (

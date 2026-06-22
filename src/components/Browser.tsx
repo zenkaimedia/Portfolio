@@ -31,7 +31,10 @@ export default function Browser({
 }) {
   const pathname = usePathname();
   const tree = useMemo(() => buildTree(projects, folderOrder), [projects, folderOrder]);
-  const flat = useMemo(() => flattenFiles(tree), [tree]);
+  const flat = useMemo(
+    () => flattenFiles(tree).filter((f) => f.file.project.type !== "redirect"),
+    [tree]
+  );
 
   const [path, setPath] = useState<string[]>(initialPath);
 

@@ -84,8 +84,8 @@ export async function createProjectAction(input: {
   if (!title || !category || !type || !media) {
     return { error: "Title, category, type and media are required." };
   }
-  if (!["image", "video", "website", "pdf"].includes(type)) {
-    return { error: "Type must be image, video, website or pdf." };
+  if (!["image", "video", "website", "pdf", "redirect"].includes(type)) {
+    return { error: "Type must be image, video, website, pdf or redirect." };
   }
 
   const supabase = getSupabaseAdmin();

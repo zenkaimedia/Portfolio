@@ -25,13 +25,20 @@ export default async function PortfolioPage({
     const tree = buildTree(projects, folderOrder);
     const { chain, file } = resolvePath(tree, initialPath);
 
-    // PDF redirect: single-segment category URL whose category contains a PDF
+    // For single-segment category URLs, check for redirect or PDF projects
     if (initialPath.length === 1 && chain.length === 1) {
       const flat = flattenFiles(tree);
+      const catName = chain[0].name;
+
+      // Redirect type: instantly send user to the stored URL
+      const redirectProject = flat.find(
+        (f) => f.file.project.category === catName && f.file.project.type === "redirect"
+      );
+      if (redirectProject) redirect(redirectProject.file.project.media);
+
+      // PDF type: open the PDF directly
       const pdf = flat.find(
-        (f) =>
-          f.file.project.category === chain[0].name &&
-          f.file.project.type === "pdf"
+        (f) => f.file.project.category === catName && f.file.project.type === "pdf"
       );
       if (pdf) redirect(pdf.file.project.media);
     }

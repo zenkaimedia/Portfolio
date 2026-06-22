@@ -54,10 +54,16 @@ function UsageBar({ used, total }: { used: number; total: number }) {
 }
 
 /* ── Main panel ──────────────────────────────────────────────────────────── */
-export default function StoragePanel() {
-  const [stats, setStats] = useState<StorageStats | null>(null);
+export default function StoragePanel({
+  initialStats,
+  initialError,
+}: {
+  initialStats: StorageStats | null;
+  initialError: string | null;
+}) {
+  const [stats, setStats] = useState<StorageStats | null>(initialStats);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(initialError);
   const [plan, setPlan] = useState("Free (1 GB)");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -96,23 +102,6 @@ export default function StoragePanel() {
   }
 
   const limitBytes = PLAN_LIMITS[plan] ?? PLAN_LIMITS["Free (1 GB)"];
-
-  if (!stats && !loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-5">
-        <div className="text-center">
-          <p className="mb-2 font-display text-lg font-bold text-bone">Analyse Storage</p>
-          <p className="mb-6 max-w-xs text-sm text-muted">Scans your entire Supabase bucket and calculates usage, orphaned files, and more.</p>
-        </div>
-        <button
-          onClick={load}
-          className="rounded-full border border-gold/40 bg-gold/10 px-8 py-3.5 font-mono text-xs uppercase tracking-[0.22em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20"
-        >
-          Analyse Storage
-        </button>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -183,8 +172,8 @@ export default function StoragePanel() {
           ))}
         </div>
 
-        <button onClick={load} className="rounded-xl border border-line px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:border-gold/40 hover:text-bone">
-          ↺ Refresh
+        <button onClick={load} disabled={loading} className="rounded-xl border border-line px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:border-gold/40 hover:text-bone disabled:opacity-40">
+          {loading ? "↺ Refreshing…" : "↺ Refresh"}
         </button>
       </aside>
 

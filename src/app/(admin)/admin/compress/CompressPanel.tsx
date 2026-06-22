@@ -128,8 +128,9 @@ function CompressToast({ toast }: { toast: Toast }) {
 
 /* ── Main panel ──────────────────────────────────────────────────────────── */
 export default function CompressPanel({ projects }: { projects: Project[] }) {
+  type SortKey = "size_desc" | "size_asc" | "name_asc" | "name_desc" | "category_asc" | "status_first" | "priority_desc";
   const [quality, setQuality] = useState(75);
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("size_desc");
   const [maxMB, setMaxMB] = useState<number | null>(null);
   const [sizes, setSizes] = useState<FileSizeMap>({});
   const [status, setStatus] = useState<CompressStatus>({});
@@ -143,10 +144,25 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
     p.type === "image" && arr.findIndex((x) => x.media === p.media) === i
   );
 
-  // Sort by file size if requested
-  const filtered = sortAsc
-    ? [...allImages].sort((a, b) => (sizes[a.media] ?? 0) - (sizes[b.media] ?? 0))
-    : allImages;
+  const filtered = [...allImages].sort((a, b) => {
+    switch (sortKey) {
+      case "size_desc":    return (sizes[b.media] ?? 0) - (sizes[a.media] ?? 0);
+      case "size_asc":     return (sizes[a.media] ?? 0) - (sizes[b.media] ?? 0);
+      case "name_asc":     return a.title.localeCompare(b.title);
+      case "name_desc":    return b.title.localeCompare(a.title);
+      case "category_asc": return a.category.localeCompare(b.category) || a.title.localeCompare(b.title);
+      case "status_first": {
+        const done = (p: Project) => (status[p.id] === "done" ? 1 : 0);
+        return done(a) - done(b);
+      }
+      case "priority_desc": {
+        const pa = getRec(sizes[a.media], a.type).priority;
+        const pb = getRec(sizes[b.media], b.type).priority;
+        return pb - pa || (sizes[b.media] ?? 0) - (sizes[a.media] ?? 0);
+      }
+      default: return 0;
+    }
+  });
 
   const compressible = filtered;
 
@@ -325,15 +341,20 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
         <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
             <span className="font-mono text-[11px] text-muted">{filtered.length} image{filtered.length !== 1 ? "s" : ""}</span>
 
-          {/* Sort by size */}
-          <button
-            onClick={() => setSortAsc((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
-              sortAsc ? "border-gold/40 text-gold" : "border-line text-muted hover:text-bone"
-            }`}
+          {/* Sort */}
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="rounded-lg border border-line bg-ink px-3 py-1.5 font-mono text-[10px] text-bone outline-none focus:border-gold"
           >
-            Size {sortAsc ? "↑ Asc" : "↓ Desc"}
-          </button>
+            <option value="size_desc">Size: Large → Small</option>
+            <option value="size_asc">Size: Small → Large</option>
+            <option value="priority_desc">Priority: High → Low</option>
+            <option value="name_asc">Name: A → Z</option>
+            <option value="name_desc">Name: Z → A</option>
+            <option value="category_asc">Category: A → Z</option>
+            <option value="status_first">Status: Uncompressed first</option>
+          </select>
 
           <button
             onClick={selectAllImages}

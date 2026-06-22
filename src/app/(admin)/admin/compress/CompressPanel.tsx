@@ -73,7 +73,7 @@ async function compressImageBlob(url: string, quality: number, maxMB: number | n
         return c;
       })();
 
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
+  (canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D)!.drawImage(bitmap, 0, 0);
   bitmap.close();
 
   const tryCompress = (q: number): Promise<Blob> =>

@@ -53,6 +53,36 @@ function UsageBar({ used, total }: { used: number; total: number }) {
   );
 }
 
+/* ── Confirm dialog ──────────────────────────────────────────────────────── */
+function ConfirmDialog({
+  title, message, confirmLabel = "Delete", onConfirm, onCancel,
+}: {
+  title: string; message: string; confirmLabel?: string;
+  onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-line bg-ink-2 p-6 shadow-2xl"
+      >
+        <h3 className="mb-2 font-display text-lg font-bold text-bone">{title}</h3>
+        <p className="mb-6 text-sm leading-relaxed text-muted">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button onClick={onCancel} className="rounded-full border border-line px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:text-bone">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="rounded-full border border-ember/40 bg-ember/10 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ember transition-colors hover:bg-ember/20">
+            {confirmLabel}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ── Main panel ──────────────────────────────────────────────────────────── */
 export default function StoragePanel({
   initialStats,
@@ -68,6 +98,7 @@ export default function StoragePanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   async function load() {
     setLoading(true); setErr(null); setMsg(null);
@@ -78,27 +109,39 @@ export default function StoragePanel({
     setSelected(new Set());
   }
 
-  async function deleteSelected() {
+  function deleteSelected() {
     if (!selected.size) return;
-    if (!confirm(`Permanently delete ${selected.size} file(s)? This cannot be undone.`)) return;
-    setDeleting(true);
-    const res = await deleteFilesAction([...selected]);
-    setDeleting(false);
-    if ("error" in res) { setErr(res.error); return; }
-    setMsg(`Deleted ${res.deleted} file(s).`);
-    setSelected(new Set());
-    load();
+    setConfirmDialog({
+      title: `Delete ${selected.size} file(s)?`,
+      message: `This permanently deletes ${selected.size} selected file(s) from storage. This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setDeleting(true);
+        const res = await deleteFilesAction([...selected]);
+        setDeleting(false);
+        if ("error" in res) { setErr(res.error); return; }
+        setMsg(`Deleted ${res.deleted} file(s).`);
+        setSelected(new Set());
+        load();
+      },
+    });
   }
 
-  async function deleteAllOrphaned() {
+  function deleteAllOrphaned() {
     if (!stats?.orphaned.length) return;
-    if (!confirm(`Delete all ${stats.orphaned.length} orphaned files (${fmt(stats.orphanedSize)})? Cannot be undone.`)) return;
-    setDeleting(true);
-    const res = await deleteFilesAction(stats.orphaned.map((f) => f.path));
-    setDeleting(false);
-    if ("error" in res) { setErr(res.error); return; }
-    setMsg(`Freed ${fmt(stats.orphanedSize)} by deleting ${res.deleted} orphaned files.`);
-    load();
+    setConfirmDialog({
+      title: `Delete all ${stats.orphaned.length} orphaned files?`,
+      message: `This will permanently free ${fmt(stats.orphanedSize)} by removing all ${stats.orphaned.length} files not linked to any project. This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setDeleting(true);
+        const res = await deleteFilesAction(stats!.orphaned.map((f) => f.path));
+        setDeleting(false);
+        if ("error" in res) { setErr(res.error); return; }
+        setMsg(`Freed ${fmt(stats!.orphanedSize)} by deleting ${res.deleted} orphaned files.`);
+        load();
+      },
+    });
   }
 
   const limitBytes = PLAN_LIMITS[plan] ?? PLAN_LIMITS["Free (1 GB)"];
@@ -244,6 +287,16 @@ export default function StoragePanel({
             </div>
           )}
         </div>
+
+        {/* Confirm dialog */}
+        {confirmDialog && (
+          <ConfirmDialog
+            title={confirmDialog.title}
+            message={confirmDialog.message}
+            onConfirm={confirmDialog.onConfirm}
+            onCancel={() => setConfirmDialog(null)}
+          />
+        )}
 
         {/* Largest files ───────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-line bg-ink-2/40 p-5">

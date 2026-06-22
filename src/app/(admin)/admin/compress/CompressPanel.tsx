@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { Project } from "@/lib/types";
 import { supabaseBrowser, MEDIA_BUCKET } from "@/lib/supabase/client";
-import { getOverwriteUploadUrlAction } from "./actions";
+import { getOverwriteUploadUrlAction, getFileSizesAction } from "./actions";
 
 function storagePathFromUrl(url: string): string | null {
   const marker = "/object/public/portfolio/";
@@ -166,23 +166,27 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
 
   const compressible = filtered;
 
-  // Fetch ALL file sizes in parallel via HEAD requests
+  // Fetch accurate file sizes from Supabase Storage API (not HTTP headers)
   useEffect(() => {
     let cancelled = false;
     const toFetch = allImages.filter((p) => sizes[p.media] === undefined);
     if (!toFetch.length) return;
 
-    Promise.all(
-      toFetch.map(async (p) => {
-        try {
-          const res = await fetch(p.media, { method: "HEAD" });
-          const len = res.headers.get("content-length");
-          if (!cancelled) setSizes((prev) => ({ ...prev, [p.media]: len ? parseInt(len) : null }));
-        } catch {
-          if (!cancelled) setSizes((prev) => ({ ...prev, [p.media]: null }));
-        }
-      })
-    );
+    const paths = toFetch
+      .map((p) => storagePathFromUrl(p.media))
+      .filter((p): p is string => p !== null);
+
+    if (!paths.length) return;
+
+    getFileSizesAction(paths).then((result) => {
+      if (cancelled) return;
+      const update: FileSizeMap = {};
+      for (const p of toFetch) {
+        const path = storagePathFromUrl(p.media);
+        update[p.media] = path !== null ? (result[path] ?? null) : null;
+      }
+      setSizes((prev) => ({ ...prev, ...update }));
+    });
 
     return () => { cancelled = true; };
   }, [allImages.length]); // eslint-disable-line react-hooks/exhaustive-deps

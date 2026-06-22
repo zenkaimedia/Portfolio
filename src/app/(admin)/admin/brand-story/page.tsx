@@ -9,7 +9,7 @@ export default async function BrandStoryPage() {
   if (!(await isAuthed())) redirect("/admin/login");
 
   let story = "";
-  let faqs = [];
+  let faqs: Awaited<ReturnType<typeof fetchFAQs>> = [];
   try {
     [story, faqs] = await Promise.all([fetchBrandStory(), fetchFAQs()]);
   } catch { /* tables may not exist yet */ }

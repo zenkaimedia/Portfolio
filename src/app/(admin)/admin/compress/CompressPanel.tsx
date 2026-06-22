@@ -356,6 +356,19 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
             <option value="status_first">Status: Uncompressed first</option>
           </select>
 
+          {/* Auto-select high priority */}
+          <button
+            onClick={() => {
+              const highPriority = allImages.filter(
+                (p) => getRec(sizes[p.media], p.type).priority >= 2 && status[p.id] !== "done"
+              );
+              setSelected(new Set(highPriority.map((p) => p.id)));
+            }}
+            className="rounded-lg border border-ember/40 bg-ember/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ember transition-colors hover:bg-ember/20"
+          >
+            ❗ Select High Priority
+          </button>
+
           <button
             onClick={selectAllImages}
             className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted hover:text-bone"

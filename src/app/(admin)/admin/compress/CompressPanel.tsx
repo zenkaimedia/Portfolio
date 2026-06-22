@@ -56,30 +56,40 @@ function getRec(bytes: number | null, type: string): { label: string; color: str
   return { label: "N/A", color: "text-muted", priority: 0 };
 }
 
-/* ── Image compression via Canvas ────────────────────────────────────────── */
+/* ── Image compression via OffscreenCanvas (non-blocking) ───────────────── */
 async function compressImageBlob(url: string, quality: number, maxMB: number | null): Promise<Blob> {
   const res = await fetch(url);
   const originalBlob = await res.blob();
-
   const bitmap = await createImageBitmap(originalBlob);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+
+  // OffscreenCanvas runs off the main thread — much faster than HTMLCanvasElement
+  const useOffscreen = typeof OffscreenCanvas !== "undefined";
+  const canvas = useOffscreen
+    ? new OffscreenCanvas(bitmap.width, bitmap.height)
+    : (() => {
+        const c = document.createElement("canvas");
+        c.width = bitmap.width;
+        c.height = bitmap.height;
+        return c;
+      })();
+
   canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
   bitmap.close();
 
-  const tryCompress = (q: number) =>
-    new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
-        "image/webp",
-        q / 100
-      )
-    );
+  const tryCompress = (q: number): Promise<Blob> =>
+    useOffscreen
+      ? (canvas as OffscreenCanvas).convertToBlob({ type: "image/webp", quality: q / 100 })
+      : new Promise((resolve, reject) =>
+          (canvas as HTMLCanvasElement).toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+            "image/webp",
+            q / 100
+          )
+        );
 
   let blob = await tryCompress(quality);
 
-  // If a max size is set, iteratively reduce quality until it fits
+  // Iteratively reduce quality if a max-size target is set
   if (maxMB && blob.size > maxMB * 1024 * 1024) {
     let q = quality - 10;
     while (q >= 20 && blob.size > maxMB * 1024 * 1024) {
@@ -119,6 +129,7 @@ function CompressToast({ toast }: { toast: Toast }) {
 /* ── Main panel ──────────────────────────────────────────────────────────── */
 export default function CompressPanel({ projects }: { projects: Project[] }) {
   const [quality, setQuality] = useState(75);
+  const [sortAsc, setSortAsc] = useState(false);
   const [maxMB, setMaxMB] = useState<number | null>(null);
   const [sizes, setSizes] = useState<FileSizeMap>({});
   const [status, setStatus] = useState<CompressStatus>({});
@@ -128,18 +139,25 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
   const abortRef = useRef(false);
 
   // Images only, deduplicated by media URL
-  const filtered = projects.filter((p, i, arr) =>
+  const allImages = projects.filter((p, i, arr) =>
     p.type === "image" && arr.findIndex((x) => x.media === p.media) === i
   );
+
+  // Sort by file size if requested
+  const filtered = sortAsc
+    ? [...allImages].sort((a, b) => (sizes[a.media] ?? 0) - (sizes[b.media] ?? 0))
+    : allImages;
+
   const compressible = filtered;
 
-  // Fetch file sizes via HEAD requests
+  // Fetch ALL file sizes in parallel via HEAD requests
   useEffect(() => {
     let cancelled = false;
-    async function loadSizes() {
-      const toFetch = filtered.filter((p) => sizes[p.media] === undefined);
-      for (const p of toFetch) {
-        if (cancelled) break;
+    const toFetch = allImages.filter((p) => sizes[p.media] === undefined);
+    if (!toFetch.length) return;
+
+    Promise.all(
+      toFetch.map(async (p) => {
         try {
           const res = await fetch(p.media, { method: "HEAD" });
           const len = res.headers.get("content-length");
@@ -147,11 +165,11 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
         } catch {
           if (!cancelled) setSizes((prev) => ({ ...prev, [p.media]: null }));
         }
-      }
-    }
-    loadSizes();
+      })
+    );
+
     return () => { cancelled = true; };
-  }, [filtered.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allImages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -215,18 +233,24 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
     );
     if (!toCompress.length) return;
 
-    let done = 0, totalSaved = 0;
+    let done = 0;
     setToast({ label: "Compressing images…", sub: `0 / ${toCompress.length}` });
 
-    for (const p of toCompress) {
+    // Process 3 images in parallel for speed
+    const CONCURRENCY = 3;
+    for (let i = 0; i < toCompress.length; i += CONCURRENCY) {
       if (abortRef.current) break;
-      setToast({ label: "Compressing images…", sub: `${done + 1} / ${toCompress.length} — ${p.title}` });
-      const ok = await compressOne(p);
-      if (ok) totalSaved += (sizes[p.media] ?? 0);
-      done++;
+      const batch = toCompress.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        batch.map(async (p) => {
+          await compressOne(p);
+          done++;
+          setToast({ label: "Compressing images…", sub: `${done} / ${toCompress.length} done` });
+        })
+      );
     }
 
-    setToast({ label: `${done} images compressed`, sub: `~${formatBytes(totalSaved)} saved`, done: true });
+    setToast({ label: `${done} image${done !== 1 ? "s" : ""} compressed`, sub: "All done!", done: true });
     setTimeout(() => setToast(null), 3000);
   }
 
@@ -300,6 +324,17 @@ export default function CompressPanel({ projects }: { projects: Project[] }) {
         {/* Toolbar */}
         <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
             <span className="font-mono text-[11px] text-muted">{filtered.length} image{filtered.length !== 1 ? "s" : ""}</span>
+
+          {/* Sort by size */}
+          <button
+            onClick={() => setSortAsc((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
+              sortAsc ? "border-gold/40 text-gold" : "border-line text-muted hover:text-bone"
+            }`}
+          >
+            Size {sortAsc ? "↑ Asc" : "↓ Desc"}
+          </button>
+
           <button
             onClick={selectAllImages}
             className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted hover:text-bone"

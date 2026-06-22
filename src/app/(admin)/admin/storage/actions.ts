@@ -1,6 +1,7 @@
 "use server";
 
 import { isAuthed } from "@/lib/auth";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
 
@@ -34,58 +35,56 @@ function storagePathFromUrl(url: string): string | null {
   return decodeURIComponent(url.slice(i + marker.length));
 }
 
-/** Query storage.objects via PostgREST Accept-Profile header — same source as Supabase dashboard. */
+/** Recursively list all files in the bucket using the Storage API with pagination. */
 async function fetchAllStorageObjects(): Promise<StorageFileInfo[]> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
+  const supabase = getSupabaseAdmin();
+  const all: StorageFileInfo[] = [];
+  await listFolder(supabase, "", all);
+  return all;
+}
 
+async function listFolder(
+  supabase: SupabaseClient,
+  prefix: string,
+  out: StorageFileInfo[],
+  depth = 0
+) {
+  if (depth > 8) return;
   const PAGE = 1000;
   let offset = 0;
-  const all: StorageFileInfo[] = [];
 
   while (true) {
-    // PostgREST supports switching to non-public schemas via Accept-Profile header
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/objects?bucket_id=eq.${BUCKET}&metadata=not.is.null&select=name,metadata,updated_at&limit=${PAGE}&offset=${offset}`,
-      {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          "Accept-Profile": "storage", // query the storage schema
-        },
-      }
-    );
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .list(prefix || undefined, {
+        limit: PAGE,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Storage query failed: ${res.status} ${text}`);
-    }
+    if (error || !data || data.length === 0) break;
 
-    const data = (await res.json()) as {
-      name: string;
-      metadata: { size?: number; mimetype?: string } | null;
-      updated_at: string;
-    }[];
+    for (const item of data) {
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+      const meta = item.metadata as { size?: number; mimetype?: string } | null;
 
-    if (!data.length) break;
-
-    for (const obj of data) {
-      if (obj.metadata) {
-        all.push({
-          path: obj.name,
-          size: obj.metadata.size ?? 0,
-          mimetype: obj.metadata.mimetype ?? "application/octet-stream",
-          lastModified: obj.updated_at ?? "",
+      if (meta) {
+        // It's a file — metadata is populated
+        out.push({
+          path: fullPath,
+          size: meta.size ?? 0,
+          mimetype: meta.mimetype ?? "application/octet-stream",
+          lastModified: (item as { updated_at?: string }).updated_at ?? "",
         });
+      } else {
+        // It's a folder — recurse
+        await listFolder(supabase, fullPath, out, depth + 1);
       }
     }
 
     if (data.length < PAGE) break;
     offset += PAGE;
   }
-
-  return all;
 }
 
 /* ── Actions ─────────────────────────────────────────────────────────────── */

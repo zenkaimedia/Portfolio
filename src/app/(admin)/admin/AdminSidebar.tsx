@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/share",     label: "Portfolio Sharing",  icon: LinkIcon,      exact: false },
   { href: "/admin/messages",  label: "Message Templates",  icon: MessageIcon,   exact: false },
   { href: "/admin/compress",  label: "Compress Media",     icon: CompressIcon,  exact: false },
+  { href: "/admin/storage",   label: "Storage",            icon: StorageIcon,   exact: false },
 ] as const;
 
 export default function AdminSidebar() {

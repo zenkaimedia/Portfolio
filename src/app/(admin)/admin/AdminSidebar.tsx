@@ -6,24 +6,38 @@ import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, UsersIcon, ActivityIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
+import type { AdminUser } from "@/lib/auth";
+import { PERMISSIONS } from "@/lib/permissions";
 
+// permission = null means accessible to all logged-in users
+// permission = "admin" means admin role only
 const NAV = [
-  { href: "/admin",           label: "Add Project",       icon: PlusIcon,      exact: true },
-  { href: "/admin/manage",    label: "Manage",             icon: LayersIcon,    exact: false },
-  { href: "/admin/share",     label: "Portfolio Sharing",  icon: LinkIcon,      exact: false },
-  { href: "/admin/messages",  label: "Message Templates",  icon: MessageIcon,   exact: false },
-  { href: "/admin/compress",  label: "Compress Media",     icon: CompressIcon,  exact: false },
-  { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false },
-  { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false },
-  { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false },
-  { href: "/admin/activity",     label: "Activity Log",        icon: ActivityIcon,  exact: false },
-] as const;
+  { href: "/admin",              label: "Add Project",       icon: PlusIcon,      exact: true,  permission: PERMISSIONS.PROJECTS    as string | null },
+  { href: "/admin/manage",       label: "Manage",             icon: LayersIcon,    exact: false, permission: PERMISSIONS.PROJECTS    as string | null },
+  { href: "/admin/share",        label: "Portfolio Sharing",  icon: LinkIcon,      exact: false, permission: PERMISSIONS.SHARE       as string | null },
+  { href: "/admin/messages",     label: "Message Templates",  icon: MessageIcon,   exact: false, permission: PERMISSIONS.MESSAGES    as string | null },
+  { href: "/admin/compress",     label: "Compress Media",     icon: CompressIcon,  exact: false, permission: PERMISSIONS.COMPRESS    as string | null },
+  { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false, permission: PERMISSIONS.STORAGE     as string | null },
+  { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false, permission: PERMISSIONS.BRAND_STORY as string | null },
+  { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false, permission: "admin"                as string | null },
+  { href: "/admin/activity",     label: "Activity Log",        icon: ActivityIcon,  exact: false, permission: "admin"                as string | null },
+];
 
-export default function AdminSidebar() {
+function canSee(item: typeof NAV[number], user: AdminUser | null): boolean {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  if (item.permission === "admin") return false;
+  if (item.permission === null) return true;
+  return user.permissions.includes(item.permission);
+}
+
+export default function AdminSidebar({ user }: { user: AdminUser | null }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (pathname === "/admin/login") return null;
+
+  const visibleNav = NAV.filter(item => canSee(item, user));
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
@@ -37,7 +51,7 @@ export default function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-1 p-3 pt-4">
-        {NAV.map(({ href, label, icon: Icon, exact }) => {
+        {visibleNav.map(({ href, label, icon: Icon, exact }) => {
           const active = isActive(href, exact);
           return (
             <Link

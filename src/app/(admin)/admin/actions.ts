@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, hashPassword, createSessionToken, isAuthed, getCurrentUser } from "@/lib/auth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
 
@@ -72,7 +73,24 @@ export async function loginAction(
   // Update last_login_at
   await supabase.from("admin_users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
 
-  redirect("/admin");
+  redirect(getFirstPage(user.role, user.permissions as string[]));
+}
+
+function getFirstPage(role: string, permissions: string[]): string {
+  if (role === "admin") return "/admin";
+  // Walk pages in sidebar order and return first one permitted
+  const order: [string, string][] = [
+    [PERMISSIONS.PROJECTS,    "/admin"],
+    [PERMISSIONS.SHARE,       "/admin/share"],
+    [PERMISSIONS.MESSAGES,    "/admin/messages"],
+    [PERMISSIONS.COMPRESS,    "/admin/compress"],
+    [PERMISSIONS.STORAGE,     "/admin/storage"],
+    [PERMISSIONS.BRAND_STORY, "/admin/brand-story"],
+  ];
+  for (const [perm, page] of order) {
+    if (permissions.includes(perm)) return page;
+  }
+  return "/admin/settings"; // fallback — always accessible
 }
 
 export async function logoutAction() {

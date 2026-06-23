@@ -2,31 +2,9 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, hashPassword, createSessionToken, isAuthed, getCurrentUser, getFirstPage } from "@/lib/auth";
+import { SESSION_COOKIE, hashPassword, createSessionToken, isAuthed, getFirstPage } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
-
-/* ── Ensure at least one admin exists (first-run bootstrap) ──────────────── */
-async function ensureDefaultAdmin() {
-  const supabase = getSupabaseAdmin();
-  const { count } = await supabase
-    .from("admin_users")
-    .select("*", { count: "exact", head: true });
-  if ((count ?? 0) > 0) return;
-
-  const pw = process.env.ADMIN_PASSWORD;
-  if (!pw) return;
-
-  const DEFAULT_ID = "00000000-0000-0000-0000-000000000001";
-  await supabase.from("admin_users").upsert({
-    id: DEFAULT_ID,
-    name: "Admin",
-    email: "admin@zenkai.in",
-    password_hash: hashPassword(pw, DEFAULT_ID),
-    role: "admin",
-    is_active: true,
-  });
-}
 
 export async function loginAction(
   _prev: string | null,
@@ -36,9 +14,16 @@ export async function loginAction(
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return "Email and password are required.";
 
-  await ensureDefaultAdmin();
-
   const supabase = getSupabaseAdmin();
+
+  // Check if any users exist yet — redirect to setup if not
+  const { count } = await supabase
+    .from("admin_users")
+    .select("*", { count: "exact", head: true });
+  if ((count ?? 0) === 0) {
+    redirect("/admin/setup");
+  }
+
   const { data: user } = await supabase
     .from("admin_users")
     .select("id, name, email, role, is_active, password_hash, permissions")
@@ -52,7 +37,7 @@ export async function loginAction(
   if (hash !== user.password_hash) return "Invalid email or password.";
 
   const store = await cookies();
-  store.set(SESSION_COOKIE, createSessionToken(user.id), {
+  store.set(SESSION_COOKIE, createSessionToken(user.id, user.password_hash as string), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -60,33 +45,12 @@ export async function loginAction(
     maxAge: 60 * 60 * 8,
   });
 
-  // Log activity
-  await supabase.from("activity_log").insert({
-    user_id: user.id,
-    user_name: user.name,
-    user_email: user.email,
-    action: "login",
-    details: { role: user.role },
-  });
-
-  // Update last_login_at
   await supabase.from("admin_users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
 
   redirect(getFirstPage(user.role, user.permissions as string[]));
 }
 
-
 export async function logoutAction() {
-  const user = await getCurrentUser();
-  if (user) {
-    await getSupabaseAdmin().from("activity_log").insert({
-      user_id: user.id,
-      user_name: user.name,
-      user_email: user.email,
-      action: "logout",
-      details: {},
-    });
-  }
   const store = await cookies();
   store.delete(SESSION_COOKIE);
   redirect("/admin/login");

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAdmin, hashPassword, getCurrentUser } from "@/lib/auth";
+import { isAdmin, hashPassword } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type AdminUserRow = {
@@ -54,15 +54,6 @@ export async function createUserAction(input: {
 
   if (error) return { error: error.code === "23505" ? "Email already exists." : error.message };
 
-  const me = await getCurrentUser();
-  await supabase.from("activity_log").insert({
-    user_id: me?.id ?? null,
-    user_name: me?.name ?? "Admin",
-    user_email: me?.email ?? null,
-    action: "user_created",
-    details: { created_user: email, role },
-  });
-
   revalidatePath("/admin/users");
   return { ok: true, user: data as AdminUserRow };
 }
@@ -102,12 +93,6 @@ export async function toggleUserActiveAction(
     .from("admin_users").update({ is_active }).eq("id", id);
   if (error) return { error: error.message };
 
-  await getSupabaseAdmin().from("activity_log").insert({
-    user_id: me?.id ?? null,
-    user_name: me?.name ?? "Admin",
-    action: is_active ? "user_activated" : "user_deactivated",
-    details: { target_user_id: id },
-  });
   revalidatePath("/admin/users");
   return { ok: true };
 }

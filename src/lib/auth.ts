@@ -2,8 +2,11 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSupabaseAdmin } from "./supabase/admin";
 
+export { PERMISSIONS, type Permission } from "./permissions";
+import { PERMISSIONS } from "./permissions";
+
 export const SESSION_COOKIE = "zk_session";
-export const ADMIN_COOKIE = SESSION_COOKIE; // backward compat alias
+export const ADMIN_COOKIE = SESSION_COOKIE;
 
 export type AdminUser = {
   id: string;
@@ -14,52 +17,57 @@ export type AdminUser = {
   is_active: boolean;
 };
 
-export { PERMISSIONS, type Permission } from "./permissions";
-import { PERMISSIONS } from "./permissions";
-
-/* ── Password hashing ────────────────────────────────────────────────────── */
+/* ── Password hashing (no env var needed) ────────────────────────────────── */
 export function hashPassword(password: string, userId: string): string {
-  const secret = process.env.ADMIN_PASSWORD ?? "zenkai-media";
+  // userId acts as a unique salt per user — no server secret required
   return crypto
-    .createHmac("sha512", secret)
-    .update(`${password}::${userId}`)
+    .createHmac("sha512", userId)
+    .update(password)
     .digest("hex");
 }
 
-/* ── Session token ───────────────────────────────────────────────────────── */
-function signSession(userId: string): string {
-  const secret = process.env.ADMIN_PASSWORD ?? "zenkai-media";
-  return crypto.createHmac("sha256", secret).update(userId).digest("hex");
+/* ── Session token signed with the user's own password hash ─────────────── */
+// This way: if the password changes, old sessions are automatically invalidated.
+function signSession(userId: string, passwordHash: string): string {
+  return crypto
+    .createHmac("sha256", passwordHash)
+    .update(userId)
+    .digest("hex")
+    .slice(0, 32);
 }
 
-export function createSessionToken(userId: string): string {
-  return `${userId}:${signSession(userId)}`;
+export function createSessionToken(userId: string, passwordHash: string): string {
+  return `${userId}:${signSession(userId, passwordHash)}`;
 }
 
-function parseSessionToken(token: string): string | null {
-  const sep = token.lastIndexOf(":");
-  if (sep === -1) return null;
-  const userId = token.slice(0, sep);
-  const sig = token.slice(sep + 1);
-  if (!userId || sig !== signSession(userId)) return null;
-  return userId;
-}
-
-/* ── Session helpers ─────────────────────────────────────────────────────── */
+/* ── Get current user (verifies session against DB) ─────────────────────── */
 export async function getCurrentUser(): Promise<AdminUser | null> {
   try {
     const store = await cookies();
     const token = store.get(SESSION_COOKIE)?.value;
     if (!token) return null;
-    const userId = parseSessionToken(token);
-    if (!userId) return null;
+
+    const sep = token.lastIndexOf(":");
+    if (sep === -1) return null;
+    const userId = token.slice(0, sep);
+    const sig = token.slice(sep + 1);
+
     const { data } = await getSupabaseAdmin()
       .from("admin_users")
-      .select("id, name, email, role, permissions, is_active")
+      .select("id, name, email, role, permissions, is_active, password_hash")
       .eq("id", userId)
       .eq("is_active", true)
       .single();
-    return (data as AdminUser) ?? null;
+
+    if (!data) return null;
+
+    // Verify signature against current password hash
+    const expected = signSession(userId, data.password_hash as string);
+    if (sig !== expected) return null;
+
+    // Return user without exposing password_hash
+    const { password_hash: _ph, ...user } = data as typeof data & { password_hash: string };
+    return user as AdminUser;
   } catch {
     return null;
   }
@@ -81,7 +89,7 @@ export async function hasPermission(permission: string): Promise<boolean> {
   return user.permissions.includes(permission);
 }
 
-/** Returns the first page a user can access (used for post-login redirect). */
+/* ── First-page redirect helper ──────────────────────────────────────────── */
 export function getFirstPage(role: string, permissions: string[]): string {
   if (role === "admin") return "/admin";
   const order: [string, string][] = [
@@ -98,18 +106,13 @@ export function getFirstPage(role: string, permissions: string[]): string {
   return "/admin/settings";
 }
 
-/**
- * Guard for admin pages. Redirects unauthenticated users to /admin/login
- * and users without the required permission to their first accessible page.
- * Pass null to allow any authenticated user.
- */
+/* ── requireAccess guard ─────────────────────────────────────────────────── */
 export async function requireAccess(
   permission: string | "admin" | null = null
 ): Promise<AdminUser> {
   const { redirect } = await import("next/navigation");
   const user = await getCurrentUser();
   if (!user) redirect("/admin/login");
-  // After redirect, TypeScript still thinks user could be null — assert it
   const u = user!;
 
   const allowed =
@@ -120,9 +123,8 @@ export async function requireAccess(
         : u.role === "admin" || u.permissions.includes(permission);
 
   if (!allowed) redirect(getFirstPage(u.role, u.permissions));
-
   return u;
 }
 
-/** Kept for backward compat — no longer used internally. */
+/** Backward compat */
 export function adminToken(): string { return ""; }

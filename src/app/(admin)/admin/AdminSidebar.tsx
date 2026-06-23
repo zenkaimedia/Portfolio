@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, UsersIcon, ActivityIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, UsersIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 import type { AdminUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";

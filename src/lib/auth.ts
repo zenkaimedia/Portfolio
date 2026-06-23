@@ -1,19 +1,93 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { getSupabaseAdmin } from "./supabase/admin";
 
-export const ADMIN_COOKIE = "zk_admin";
+export const SESSION_COOKIE = "zk_session";
+export const ADMIN_COOKIE = SESSION_COOKIE; // backward compat alias
 
-/** A non-reversible token derived from the admin password (so the raw
- *  password is never stored in the cookie). */
-export function adminToken(): string {
-  const pw = process.env.ADMIN_PASSWORD ?? "";
-  return crypto.createHash("sha256").update(`${pw}::zenkai-admin`).digest("hex");
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "user";
+  permissions: string[];
+  is_active: boolean;
+};
+
+export const PERMISSIONS = {
+  PROJECTS:    "projects",
+  SHARE:       "share",
+  MESSAGES:    "messages",
+  STORAGE:     "storage",
+  COMPRESS:    "compress",
+  BRAND_STORY: "brand_story",
+} as const;
+
+export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+
+/* ── Password hashing ────────────────────────────────────────────────────── */
+export function hashPassword(password: string, userId: string): string {
+  const secret = process.env.ADMIN_PASSWORD ?? "zenkai-media";
+  return crypto
+    .createHmac("sha512", secret)
+    .update(`${password}::${userId}`)
+    .digest("hex");
 }
 
-/** True when the request carries a valid admin session cookie. */
+/* ── Session token ───────────────────────────────────────────────────────── */
+function signSession(userId: string): string {
+  const secret = process.env.ADMIN_PASSWORD ?? "zenkai-media";
+  return crypto.createHmac("sha256", secret).update(userId).digest("hex");
+}
+
+export function createSessionToken(userId: string): string {
+  return `${userId}:${signSession(userId)}`;
+}
+
+function parseSessionToken(token: string): string | null {
+  const sep = token.lastIndexOf(":");
+  if (sep === -1) return null;
+  const userId = token.slice(0, sep);
+  const sig = token.slice(sep + 1);
+  if (!userId || sig !== signSession(userId)) return null;
+  return userId;
+}
+
+/* ── Session helpers ─────────────────────────────────────────────────────── */
+export async function getCurrentUser(): Promise<AdminUser | null> {
+  try {
+    const store = await cookies();
+    const token = store.get(SESSION_COOKIE)?.value;
+    if (!token) return null;
+    const userId = parseSessionToken(token);
+    if (!userId) return null;
+    const { data } = await getSupabaseAdmin()
+      .from("admin_users")
+      .select("id, name, email, role, permissions, is_active")
+      .eq("id", userId)
+      .eq("is_active", true)
+      .single();
+    return (data as AdminUser) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function isAuthed(): Promise<boolean> {
-  if (!process.env.ADMIN_PASSWORD) return false;
-  const store = await cookies();
-  const token = store.get(ADMIN_COOKIE)?.value;
-  return !!token && token === adminToken();
+  return !!(await getCurrentUser());
 }
+
+export async function isAdmin(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user?.role === "admin";
+}
+
+export async function hasPermission(permission: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  return user.permissions.includes(permission);
+}
+
+/** Kept for backward compat — no longer used internally. */
+export function adminToken(): string { return ""; }

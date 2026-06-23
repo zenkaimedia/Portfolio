@@ -2,37 +2,92 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ADMIN_COOKIE, adminToken, isAuthed } from "@/lib/auth";
+import { SESSION_COOKIE, hashPassword, createSessionToken, isAuthed, getCurrentUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { MEDIA_BUCKET as BUCKET } from "@/lib/constants";
 
-/** Login form action — used with useActionState. Returns an error string or
- *  redirects on success. */
+/* ── Ensure at least one admin exists (first-run bootstrap) ──────────────── */
+async function ensureDefaultAdmin() {
+  const supabase = getSupabaseAdmin();
+  const { count } = await supabase
+    .from("admin_users")
+    .select("*", { count: "exact", head: true });
+  if ((count ?? 0) > 0) return;
+
+  const pw = process.env.ADMIN_PASSWORD;
+  if (!pw) return;
+
+  const DEFAULT_ID = "00000000-0000-0000-0000-000000000001";
+  await supabase.from("admin_users").upsert({
+    id: DEFAULT_ID,
+    name: "Admin",
+    email: "admin@zenkai.in",
+    password_hash: hashPassword(pw, DEFAULT_ID),
+    role: "admin",
+    is_active: true,
+  });
+}
+
 export async function loginAction(
   _prev: string | null,
   formData: FormData
 ): Promise<string | null> {
-  const pw = String(formData.get("password") ?? "");
-  if (!process.env.ADMIN_PASSWORD) {
-    return "Server not configured: ADMIN_PASSWORD is missing.";
-  }
-  if (pw !== process.env.ADMIN_PASSWORD) {
-    return "Incorrect password.";
-  }
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) return "Email and password are required.";
+
+  await ensureDefaultAdmin();
+
+  const supabase = getSupabaseAdmin();
+  const { data: user } = await supabase
+    .from("admin_users")
+    .select("id, name, email, role, is_active, password_hash")
+    .eq("email", email)
+    .single();
+
+  if (!user) return "Invalid email or password.";
+  if (!user.is_active) return "Your account has been deactivated. Contact the admin.";
+
+  const hash = hashPassword(password, user.id);
+  if (hash !== user.password_hash) return "Invalid email or password.";
+
   const store = await cookies();
-  store.set(ADMIN_COOKIE, adminToken(), {
+  store.set(SESSION_COOKIE, createSessionToken(user.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: 60 * 60 * 8,
   });
+
+  // Log activity
+  await supabase.from("activity_log").insert({
+    user_id: user.id,
+    user_name: user.name,
+    user_email: user.email,
+    action: "login",
+    details: { role: user.role },
+  });
+
+  // Update last_login_at
+  await supabase.from("admin_users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
+
   redirect("/admin");
 }
 
 export async function logoutAction() {
+  const user = await getCurrentUser();
+  if (user) {
+    await getSupabaseAdmin().from("activity_log").insert({
+      user_id: user.id,
+      user_name: user.name,
+      user_email: user.email,
+      action: "logout",
+      details: {},
+    });
+  }
   const store = await cookies();
-  store.delete(ADMIN_COOKIE);
+  store.delete(SESSION_COOKIE);
   redirect("/admin/login");
 }
 

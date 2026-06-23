@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, UsersIcon, ActivityIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 
 const NAV = [
@@ -15,6 +15,8 @@ const NAV = [
   { href: "/admin/compress",  label: "Compress Media",     icon: CompressIcon,  exact: false },
   { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false },
   { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false },
+  { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false },
+  { href: "/admin/activity",     label: "Activity Log",        icon: ActivityIcon,  exact: false },
 ] as const;
 
 export default function AdminSidebar() {

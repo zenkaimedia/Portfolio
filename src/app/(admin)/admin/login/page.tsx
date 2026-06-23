@@ -15,27 +15,28 @@ export default function AdminLoginPage() {
         action={formAction}
         className="w-full max-w-sm rounded-2xl border border-line bg-panel/60 p-8 backdrop-blur"
       >
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.3em] text-gold">
-          Admin
-        </p>
-        <h1 className="mb-6 font-display text-2xl font-bold text-bone">
-          Sign in
-        </h1>
+        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.3em] text-gold">Admin</p>
+        <h1 className="mb-6 font-display text-2xl font-bold text-bone">Sign in</h1>
 
-        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-          Password
-        </label>
+        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Email</label>
+        <input
+          name="email"
+          type="email"
+          autoFocus
+          required
+          placeholder="admin@zenkai.in"
+          className="mb-4 w-full rounded-lg border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/40"
+        />
+
+        <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Password</label>
         <input
           name="password"
           type="password"
-          autoFocus
           required
           className="w-full rounded-lg border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold"
         />
 
-        {error && (
-          <p className="mt-3 font-mono text-xs text-ember">{error}</p>
-        )}
+        {error && <p className="mt-3 font-mono text-xs text-ember">{error}</p>}
 
         <button
           type="submit"
@@ -46,12 +47,9 @@ export default function AdminLoginPage() {
         </button>
       </form>
 
-      <Link
-        href="/"
-        className="mt-8 font-mono text-[11px] uppercase tracking-[0.25em] text-muted transition-colors hover:text-gold"
-      >
-        ← back to site
-      </Link>
+      <p className="mt-6 font-mono text-[10px] text-muted">
+        Default: admin@zenkai.in + your ADMIN_PASSWORD
+      </p>
     </main>
   );
 }

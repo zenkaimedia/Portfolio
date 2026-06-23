@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
-import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, UsersIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
+import { PlusIcon, LayersIcon, LinkIcon, MessageIcon, CompressIcon, StorageIcon, BookIcon, TaskIcon, UsersIcon, SettingsIcon, LogoutIcon, ChevronRight } from "@/components/ui/icons";
 import { logoutAction } from "./actions";
 import type { AdminUser } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -19,6 +19,7 @@ const NAV = [
   { href: "/admin/compress",     label: "Compress Media",     icon: CompressIcon,  exact: false, permission: PERMISSIONS.COMPRESS    as string | null },
   { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false, permission: PERMISSIONS.STORAGE     as string | null },
   { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false, permission: PERMISSIONS.BRAND_STORY as string | null },
+  { href: "/admin/tasks",        label: "My Tasks",             icon: TaskIcon,      exact: false, permission: null                 as string | null },
   { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false, permission: "admin"                as string | null },
 ];
 

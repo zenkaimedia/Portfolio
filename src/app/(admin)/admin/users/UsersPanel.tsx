@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { AdminUserRow } from "./actions";
 import { createUserAction, updateUserAction, toggleUserActiveAction, deleteUserAction } from "./actions";
-import { PERMISSIONS } from "@/lib/auth";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
 

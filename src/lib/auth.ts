@@ -14,16 +14,7 @@ export type AdminUser = {
   is_active: boolean;
 };
 
-export const PERMISSIONS = {
-  PROJECTS:    "projects",
-  SHARE:       "share",
-  MESSAGES:    "messages",
-  STORAGE:     "storage",
-  COMPRESS:    "compress",
-  BRAND_STORY: "brand_story",
-} as const;
-
-export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+export { PERMISSIONS, type Permission } from "./permissions";
 
 /* ── Password hashing ────────────────────────────────────────────────────── */
 export function hashPassword(password: string, userId: string): string {

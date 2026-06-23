@@ -42,7 +42,7 @@ export async function loginAction(
   const supabase = getSupabaseAdmin();
   const { data: user } = await supabase
     .from("admin_users")
-    .select("id, name, email, role, is_active, password_hash")
+    .select("id, name, email, role, is_active, password_hash, permissions")
     .eq("email", email)
     .single();
 

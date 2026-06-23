@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import SettingsPanel from "./SettingsPanel";
 
 export default async function SettingsPage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess(null);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-8 md:px-8 md:py-10">
@@ -13,3 +12,4 @@ export default async function SettingsPage() {
     </div>
   );
 }
+

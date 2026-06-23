@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import { buildTree } from "@/lib/tree";
 import CopyLinkPanel from "./CopyLinkPanel";
@@ -7,7 +6,7 @@ import CopyLinkPanel from "./CopyLinkPanel";
 export const dynamic = "force-dynamic";
 
 export default async function SharePage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("share");
 
   let categories: { name: string; slug: string }[] = [];
 
@@ -40,3 +39,4 @@ export default async function SharePage() {
     </div>
   );
 }
+

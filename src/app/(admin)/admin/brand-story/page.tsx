@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { fetchBrandStory, fetchFAQs } from "./actions";
 import BrandStoryPanel from "./BrandStoryPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function BrandStoryPage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("brand_story");
 
   let story = "";
   let faqs: Awaited<ReturnType<typeof fetchFAQs>> = [];
@@ -29,3 +28,4 @@ export default async function BrandStoryPage() {
     </div>
   );
 }
+

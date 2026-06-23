@@ -80,5 +80,51 @@ export async function hasPermission(permission: string): Promise<boolean> {
   return user.permissions.includes(permission);
 }
 
+/** Returns the first page a user can access (used for post-login redirect). */
+export function getFirstPage(role: string, permissions: string[]): string {
+  if (role === "admin") return "/admin";
+  const order: [string, string][] = [
+    [PERMISSIONS.PROJECTS,    "/admin"],
+    [PERMISSIONS.SHARE,       "/admin/share"],
+    [PERMISSIONS.MESSAGES,    "/admin/messages"],
+    [PERMISSIONS.COMPRESS,    "/admin/compress"],
+    [PERMISSIONS.STORAGE,     "/admin/storage"],
+    [PERMISSIONS.BRAND_STORY, "/admin/brand-story"],
+  ];
+  for (const [perm, page] of order) {
+    if (permissions.includes(perm)) return page;
+  }
+  return "/admin/settings";
+}
+
+/**
+ * Guard for admin pages. Redirects unauthenticated users to /admin/login
+ * and users without the required permission to their first accessible page.
+ * Pass null to allow any authenticated user.
+ */
+export async function requireAccess(
+  permission: string | "admin" | null = null
+): Promise<AdminUser> {
+  const user = await getCurrentUser();
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/admin/login");
+  }
+
+  const allowed =
+    permission === null
+      ? true
+      : permission === "admin"
+        ? user.role === "admin"
+        : user.role === "admin" || user.permissions.includes(permission);
+
+  if (!allowed) {
+    const { redirect } = await import("next/navigation");
+    redirect(getFirstPage(user.role, user.permissions));
+  }
+
+  return user;
+}
+
 /** Kept for backward compat — no longer used internally. */
 export function adminToken(): string { return ""; }

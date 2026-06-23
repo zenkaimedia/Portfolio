@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+﻿import { redirect } from "next/navigation";
+import { requireAccess } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import ActivityLog from "./ActivityLog";
 
@@ -16,7 +16,7 @@ export type ActivityEntry = {
 };
 
 export default async function ActivityPage() {
-  if (!(await isAdmin())) redirect("/admin");
+  await requireAccess("admin");
 
   const { data } = await getSupabaseAdmin()
     .from("activity_log")
@@ -37,3 +37,4 @@ export default async function ActivityPage() {
     </div>
   );
 }
+

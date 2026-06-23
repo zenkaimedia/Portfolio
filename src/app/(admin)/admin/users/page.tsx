@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { isAdmin, getCurrentUser } from "@/lib/auth";
+import { requireAccess, getCurrentUser } from "@/lib/auth";
 import { fetchUsersAction } from "./actions";
 import UsersPanel from "./UsersPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
-  if (!(await isAdmin())) redirect("/admin");
+  await requireAccess("admin");
   const [users, me] = await Promise.all([fetchUsersAction(), getCurrentUser()]);
 
   return (

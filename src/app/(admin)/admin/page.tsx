@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { fetchProjects } from "@/lib/supabase/server";
 import AdminForm from "./AdminForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("projects");
 
   let categories: string[] = [];
   let subcategories: string[] = [];
@@ -32,3 +31,4 @@ export default async function AdminPage() {
     </div>
   );
 }
+

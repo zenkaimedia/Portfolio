@@ -1,12 +1,11 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { fetchProjects } from "@/lib/supabase/server";
 import CompressPanel from "./CompressPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function CompressPage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("compress");
 
   let projects: Awaited<ReturnType<typeof fetchProjects>> = [];
   try { projects = await fetchProjects(); } catch { /* no data yet */ }
@@ -26,3 +25,4 @@ export default async function CompressPage() {
     </div>
   );
 }
+

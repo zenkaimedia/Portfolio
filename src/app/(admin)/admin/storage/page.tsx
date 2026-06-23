@@ -1,14 +1,13 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { getStorageStatsAction } from "./actions";
 import StoragePanel from "./StoragePanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoragePage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("storage");
 
-  // Fetch on the server — data is ready the moment the page loads
+  // Fetch on the server â€” data is ready the moment the page loads
   const stats = await getStorageStatsAction();
 
   return (
@@ -29,3 +28,4 @@ export default async function StoragePage() {
     </div>
   );
 }
+

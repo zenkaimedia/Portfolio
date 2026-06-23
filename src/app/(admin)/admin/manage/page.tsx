@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { isAuthed } from "@/lib/auth";
+﻿import { requireAccess } from "@/lib/auth";
 import { fetchProjects, fetchFolderOrder } from "@/lib/supabase/server";
 import type { Project } from "@/lib/types";
 import ManagePanel from "./ManagePanel";
@@ -7,7 +6,7 @@ import ManagePanel from "./ManagePanel";
 export const dynamic = "force-dynamic";
 
 export default async function ManagePage() {
-  if (!(await isAuthed())) redirect("/admin/login");
+  await requireAccess("projects");
 
   let projects: Project[] = [];
   let folderOrder: Record<string, number> = {};
@@ -41,3 +40,4 @@ export default async function ManagePage() {
     </div>
   );
 }
+

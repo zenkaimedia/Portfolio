@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import type { AdminUserRow } from "./actions";
 import { createUserAction, updateUserAction, toggleUserActiveAction, deleteUserAction } from "./actions";
 import { PERMISSIONS } from "@/lib/permissions";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
 
@@ -90,7 +91,7 @@ function UserForm({ initial, onSave, onCancel, busy }: {
         </div>
         <div>
           <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.2em] text-muted">{isEdit ? "New Password (leave blank to keep)" : "Password"}</label>
-          <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder={isEdit ? "Leave blank to keep current" : "Set a password"} className={inputCls} />
+          <PasswordInput value={password} onChange={e => setPassword(e.target.value)} placeholder={isEdit ? "Leave blank to keep current" : "Set a password"} className={inputCls} />
         </div>
         <div>
           <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.2em] text-muted">Role</label>

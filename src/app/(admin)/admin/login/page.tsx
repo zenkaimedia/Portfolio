@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
+import PasswordInput from "@/components/ui/PasswordInput";
 import { loginAction } from "../actions";
 
 export default function AdminLoginPage() {
@@ -29,9 +30,8 @@ export default function AdminLoginPage() {
         />
 
         <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.2em] text-muted">Password</label>
-        <input
+        <PasswordInput
           name="password"
-          type="password"
           required
           className="w-full rounded-lg border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold"
         />

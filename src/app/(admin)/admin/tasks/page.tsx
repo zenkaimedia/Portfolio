@@ -1,11 +1,12 @@
 import { requireAccess } from "@/lib/auth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { fetchTasksAction } from "./actions";
 import TasksPanel from "./TasksPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  const user = await requireAccess(null);
+  const user = await requireAccess(PERMISSIONS.TASKS);
   const tasks = await fetchTasksAction().catch(() => []);
 
   return (

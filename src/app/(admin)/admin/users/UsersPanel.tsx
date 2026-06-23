@@ -16,6 +16,7 @@ const ALL_PERMISSIONS = [
   { key: PERMISSIONS.STORAGE,     label: "Storage",              desc: "View and clean storage" },
   { key: PERMISSIONS.COMPRESS,    label: "Compress Media",       desc: "Compress images" },
   { key: PERMISSIONS.BRAND_STORY, label: "Brand Story & FAQs",  desc: "Edit brand content" },
+  { key: PERMISSIONS.TASKS,       label: "My Tasks",             desc: "Personal task board" },
 ];
 
 function ConfirmDialog({ title, message, onConfirm, onCancel }: {

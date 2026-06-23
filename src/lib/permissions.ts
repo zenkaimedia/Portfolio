@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   STORAGE:     "storage",
   COMPRESS:    "compress",
   BRAND_STORY: "brand_story",
+  TASKS:       "tasks",
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];

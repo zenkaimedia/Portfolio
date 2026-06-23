@@ -19,7 +19,7 @@ const NAV = [
   { href: "/admin/compress",     label: "Compress Media",     icon: CompressIcon,  exact: false, permission: PERMISSIONS.COMPRESS    as string | null },
   { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false, permission: PERMISSIONS.STORAGE     as string | null },
   { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false, permission: PERMISSIONS.BRAND_STORY as string | null },
-  { href: "/admin/tasks",        label: "My Tasks",             icon: TaskIcon,      exact: false, permission: null                 as string | null },
+  { href: "/admin/tasks",        label: "My Tasks",             icon: TaskIcon,      exact: false, permission: PERMISSIONS.TASKS    as string | null },
   { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false, permission: "admin"                as string | null },
 ];
 

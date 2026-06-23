@@ -20,7 +20,6 @@ const NAV = [
   { href: "/admin/storage",      label: "Storage",            icon: StorageIcon,   exact: false, permission: PERMISSIONS.STORAGE     as string | null },
   { href: "/admin/brand-story",  label: "Brand Story",        icon: BookIcon,      exact: false, permission: PERMISSIONS.BRAND_STORY as string | null },
   { href: "/admin/users",        label: "Users",               icon: UsersIcon,     exact: false, permission: "admin"                as string | null },
-  { href: "/admin/activity",     label: "Activity Log",        icon: ActivityIcon,  exact: false, permission: "admin"                as string | null },
 ];
 
 function canSee(item: typeof NAV[number], user: AdminUser | null): boolean {

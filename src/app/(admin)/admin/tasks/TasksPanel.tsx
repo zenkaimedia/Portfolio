@@ -334,7 +334,7 @@ export default function TasksPanel({ initialTasks }: { initialTasks: Task[] }) {
             <TaskForm
               key={task.id}
               initial={task}
-              onSave={data => handleUpdate({ id: task.id, ...data } as Parameters<typeof updateTaskAction>[0])}
+              onSave={data => handleUpdate({ ...data, id: task.id } as Parameters<typeof updateTaskAction>[0])}
               onCancel={() => setEditingTask(null)}
               busy={busy}
             />

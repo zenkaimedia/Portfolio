@@ -15,6 +15,7 @@ export type AdminUser = {
 };
 
 export { PERMISSIONS, type Permission } from "./permissions";
+import { PERMISSIONS } from "./permissions";
 
 /* ── Password hashing ────────────────────────────────────────────────────── */
 export function hashPassword(password: string, userId: string): string {
@@ -105,25 +106,22 @@ export function getFirstPage(role: string, permissions: string[]): string {
 export async function requireAccess(
   permission: string | "admin" | null = null
 ): Promise<AdminUser> {
+  const { redirect } = await import("next/navigation");
   const user = await getCurrentUser();
-  if (!user) {
-    const { redirect } = await import("next/navigation");
-    redirect("/admin/login");
-  }
+  if (!user) redirect("/admin/login");
+  // After redirect, TypeScript still thinks user could be null — assert it
+  const u = user!;
 
   const allowed =
     permission === null
       ? true
       : permission === "admin"
-        ? user.role === "admin"
-        : user.role === "admin" || user.permissions.includes(permission);
+        ? u.role === "admin"
+        : u.role === "admin" || u.permissions.includes(permission);
 
-  if (!allowed) {
-    const { redirect } = await import("next/navigation");
-    redirect(getFirstPage(user.role, user.permissions));
-  }
+  if (!allowed) redirect(getFirstPage(u.role, u.permissions));
 
-  return user;
+  return u;
 }
 
 /** Kept for backward compat — no longer used internally. */

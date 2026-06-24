@@ -40,11 +40,12 @@ export async function createTaskAction(input: {
   progress: number;
 }): Promise<{ ok: true; task: AdminTask } | { error: string }> {
   const user = await authedUser();
-  if (user.role !== "admin") return { error: "Only admins can create tasks." };
-
   const supabase = getSupabaseAdmin();
   const { data: last } = await supabase.from("tasks").select("sort_order")
     .order("sort_order", { ascending: false }).limit(1).single();
+
+  // Users always assign to themselves; admins can assign to anyone
+  const assignedTo = user.role === "admin" ? (input.assigned_to || user.id) : user.id;
 
   const { data, error } = await supabase
     .from("tasks")
@@ -53,11 +54,11 @@ export async function createTaskAction(input: {
       title: input.title.trim(),
       description: input.description.trim() || null,
       priority: input.priority,
-      category: input.category,
-      status: input.status,
-      assigned_to: input.assigned_to || null,
+      category: "general",        // fixed default
+      status: "todo",             // always start in To Do
+      assigned_to: assignedTo,
       due_date: input.due_date || null,
-      progress: input.progress,
+      progress: 0,
       sort_order: ((last?.sort_order as number) ?? -1) + 1,
     })
     .select("*, assignee:admin_users!tasks_assigned_to_fkey(id, name, email)")

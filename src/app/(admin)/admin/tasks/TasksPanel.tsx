@@ -168,35 +168,31 @@ function TaskCard({ task, isAdmin, onEdit, onDelete }: {
 }
 
 /* ── Task Modal ──────────────────────────────────────────────────────────── */
-function TaskModal({ open, onClose, editTask, defaultStatus = "todo", users, currentUserId }: {
+function TaskModal({ open, onClose, editTask, isAdmin, users, currentUserId }: {
   open: boolean; onClose: () => void;
-  editTask: AdminTask | null; defaultStatus: TaskStatus;
+  editTask: AdminTask | null; isAdmin: boolean;
   users: AdminUserRow[]; currentUserId: string;
 }) {
   const { addTask, updateTask: storeUpdate } = useAdminTaskStore();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
-  const [category, setCategory] = useState<Category>("general");
-  const [status, setStatus] = useState<TaskStatus>(defaultStatus);
   const [assignedTo, setAssignedTo] = useState("");
   const [due, setDue] = useState("");
-  const [progress, setProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     if (editTask) {
       setTitle(editTask.title); setDesc(editTask.description ?? "");
-      setPriority(editTask.priority); setCategory(editTask.category);
-      setStatus(editTask.status); setAssignedTo(editTask.assigned_to ?? "");
-      setDue(editTask.due_date ?? ""); setProgress(editTask.progress);
+      setPriority(editTask.priority); setAssignedTo(editTask.assigned_to ?? "");
+      setDue(editTask.due_date ?? "");
     } else {
-      setTitle(""); setDesc(""); setPriority("medium"); setCategory("general");
-      setStatus(defaultStatus); setAssignedTo(""); setDue(""); setProgress(0);
+      setTitle(""); setDesc(""); setPriority("medium");
+      setAssignedTo(isAdmin ? "" : currentUserId); setDue("");
     }
     setErr("");
-  }, [editTask, open, defaultStatus]);
+  }, [editTask, open, isAdmin, currentUserId]);
 
   if (!open) return null;
 
@@ -205,21 +201,29 @@ function TaskModal({ open, onClose, editTask, defaultStatus = "todo", users, cur
   async function save() {
     if (!title.trim()) { setErr("Title is required."); return; }
     setSaving(true); setErr("");
-    const payload = {
-      title: title.trim(), description: desc.trim() || "",
-      priority, category, status, due_date: due,
-      assigned_to: assignedTo, progress,
-    };
+
     if (editTask) {
-      const res = await updateTaskAction({ id: editTask.id, ...payload });
+      const res = await updateTaskAction({
+        id: editTask.id, title: title.trim(), description: desc.trim() || "",
+        priority, category: editTask.category, status: editTask.status,
+        assigned_to: assignedTo, due_date: due, progress: editTask.progress,
+      });
       if ("error" in res) { setErr(res.error); setSaving(false); return; }
-      storeUpdate(editTask.id, { ...payload, assigned_to: assignedTo || null, due_date: due || null,
-        assignee: assignedTo ? users.find(u => u.id === assignedTo) ? { id: assignedTo, name: users.find(u => u.id === assignedTo)!.name, email: users.find(u => u.id === assignedTo)!.email } : null : null });
+      const assigneeUser = users.find(u => u.id === assignedTo);
+      storeUpdate(editTask.id, {
+        title: title.trim(), description: desc.trim() || null,
+        priority, assigned_to: assignedTo || null, due_date: due || null,
+        assignee: assigneeUser ? { id: assigneeUser.id, name: assigneeUser.name, email: assigneeUser.email } : null,
+      });
     } else {
-      const res = await createTaskAction(payload);
+      const res = await createTaskAction({
+        title: title.trim(), description: desc.trim() || "",
+        priority, category: "general", status: "todo",
+        assigned_to: isAdmin ? assignedTo : currentUserId, due_date: due, progress: 0,
+      });
       if ("error" in res) { setErr(res.error); setSaving(false); return; }
       if ("task" in res) {
-        const assigneeUser = users.find(u => u.id === assignedTo);
+        const assigneeUser = users.find(u => u.id === res.task.assigned_to);
         addTask({ ...res.task, assignee: assigneeUser ? { id: assigneeUser.id, name: assigneeUser.name, email: assigneeUser.email } : null });
       }
     }
@@ -229,7 +233,7 @@ function TaskModal({ open, onClose, editTask, defaultStatus = "todo", users, cur
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-800">{editTask ? "Edit Task" : "New Task"}</h2>
           <button onClick={onClose} className="rounded-full p-1 text-slate-400 hover:bg-slate-100">✕</button>
@@ -251,51 +255,31 @@ function TaskModal({ open, onClose, editTask, defaultStatus = "todo", users, cur
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value as Category)} className={input}>
-                <option value="general">General</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="marketing">Marketing</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value as TaskStatus)} className={input}>
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
-            <div>
               <label className="mb-1 block text-xs font-semibold text-slate-500">Due Date</label>
               <input type="date" value={due} onChange={e => setDue(e.target.value)} className={input} />
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-500">Assign To</label>
-            <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
-              <option value="">— Unassigned —</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-            </select>
-          </div>
-
-          {(status === "in_progress") && (
+          {/* Assign To — admin only */}
+          {isAdmin && (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Progress: {progress}%</label>
-              <input type="range" min={0} max={100} value={progress} onChange={e => setProgress(+e.target.value)} className="w-full accent-blue-500" />
+              <label className="mb-1 block text-xs font-semibold text-slate-500">Assign To</label>
+              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
+                <option value="">— Assign to self —</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+              </select>
             </div>
           )}
         </div>
 
-        <div className="mt-5 flex gap-3">
+        <p className="mt-3 text-[11px] text-slate-400">
+          {editTask ? "" : isAdmin ? "Task will be created in To Do." : "Task will be added to your To Do list."}
+        </p>
+
+        <div className="mt-4 flex gap-3">
           <button onClick={save} disabled={saving}
             className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
-            {saving ? "Saving…" : editTask ? "Save" : "Create Task"}
+            {saving ? "Saving…" : editTask ? "Save" : "Add Task"}
           </button>
           <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Cancel</button>
         </div>
@@ -650,7 +634,7 @@ export default function TasksPanel({
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         editTask={editTask}
-        defaultStatus={modalStatus}
+        isAdmin={isAdmin}
         users={users}
         currentUserId={currentUserId}
       />

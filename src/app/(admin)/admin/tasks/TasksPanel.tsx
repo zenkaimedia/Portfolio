@@ -51,7 +51,14 @@ function fmtDate(d: string) {
 
 /* ── Stats bar ───────────────────────────────────────────────────────────── */
 function StatsBar() {
-  const stats = useAdminTaskStore((s) => s.stats());
+  const tasks = useAdminTaskStore((s) => s.tasks);
+  const now = new Date();
+  const stats = {
+    total:      tasks.length,
+    inProgress: tasks.filter((t) => t.status === "in_progress").length,
+    done:       tasks.filter((t) => t.status === "done").length,
+    overdue:    tasks.filter((t) => t.due_date && t.status !== "done" && new Date(t.due_date) < now).length,
+  };
   const items = [
     { label: "Total",       value: stats.total,      color: "text-slate-700",  bg: "bg-white border-slate-200" },
     { label: "In Progress", value: stats.inProgress, color: "text-blue-600",   bg: "bg-blue-50 border-blue-200" },
@@ -341,7 +348,8 @@ export default function TasksPanel({
   currentUserId: string;
   isAdmin: boolean;
 }) {
-  const { setTasks, byStatus, moveTask, removeTask, filter, search, setFilter, setSearch } = useAdminTaskStore();
+  const { setTasks, moveTask, removeTask, filter, search, setFilter, setSearch } = useAdminTaskStore();
+  const byStatus = useAdminTaskStore((s) => s.byStatus);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<TaskStatus>("todo");
   const [editTask, setEditTask] = useState<AdminTask | null>(null);

@@ -45,7 +45,10 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
       })
       .filter((t) => {
         if (userFilter === "all") return true;
-        return t.assigned_to === userFilter || t.user_id === userFilter;
+        // Task belongs to whoever needs to do it:
+        // assigned_to if set, otherwise the creator (user_id)
+        const owner = t.assigned_to || t.user_id;
+        return owner === userFilter;
       })
       .sort((a, b) => {
         const p = { urgent: 0, high: 1, medium: 2, low: 3 };

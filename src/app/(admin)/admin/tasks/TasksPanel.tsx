@@ -85,7 +85,7 @@ function StatsBar() {
 
 /* ── Task Card ───────────────────────────────────────────────────────────── */
 function TaskCard({ task, canEditDelete, userNames, onEdit, onDelete }: {
-  task: AdminTask; canEditDelete: boolean; userNames: { id: string; name: string }[];
+  task: AdminTask; canEditDelete: boolean; userNames: { id: string; name: string; role: string }[];
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
 }) {
@@ -324,7 +324,7 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
 
 /* ── Column ──────────────────────────────────────────────────────────────── */
 function KanbanColumn({ col, tasks, isAdmin, currentUserId, userNames, onAdd, onEdit, onDelete }: {
-  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; currentUserId: string; userNames: { id: string; name: string }[];
+  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; currentUserId: string; userNames: { id: string; name: string; role: string }[];
   onAdd: (s: TaskStatus) => void; onEdit: (t: AdminTask) => void; onDelete: (id: string) => void;
 }) {
   // Make the column itself a drop target so empty columns accept drops
@@ -364,7 +364,7 @@ function KanbanColumn({ col, tasks, isAdmin, currentUserId, userNames, onAdd, on
 
 /* ── Mobile task card (no drag, status buttons) ─────────────────────────── */
 function MobileTaskCard({ task, canEditDelete, userNames, onEdit, onDelete, onStatusChange }: {
-  task: AdminTask; canEditDelete: boolean; userNames: { id: string; name: string }[];
+  task: AdminTask; canEditDelete: boolean; userNames: { id: string; name: string; role: string }[];
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
@@ -453,7 +453,7 @@ function MobileTaskCard({ task, canEditDelete, userNames, onEdit, onDelete, onSt
 
 /* ── Mobile board (tabs + list, no DnD) ──────────────────────────────────── */
 function MobileBoard({ isAdmin, currentUserId, userNames, onAdd, onEdit, onDelete, onStatusChange }: {
-  isAdmin: boolean; currentUserId: string; userNames: { id: string; name: string }[];
+  isAdmin: boolean; currentUserId: string; userNames: { id: string; name: string; role: string }[];
   onAdd: (s: TaskStatus) => void;
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
@@ -527,7 +527,7 @@ export default function TasksPanel({
 }: {
   initialTasks: AdminTask[];
   users: AdminUserRow[];
-  userNames: { id: string; name: string }[];
+  userNames: { id: string; name: string; role: string }[];
   currentUserId: string;
   isAdmin: boolean;
   canAssign: boolean;
@@ -630,9 +630,11 @@ export default function TasksPanel({
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
             >
               <option value="all">👥 All Members</option>
-              {userNames.map(u => (
-                <option key={u.id} value={u.id}>👤 {u.name}</option>
-              ))}
+              {userNames
+                .filter(u => u.role === "user" || u.id === currentUserId)
+                .map(u => (
+                  <option key={u.id} value={u.id}>👤 {u.name}</option>
+                ))}
             </select>
           )}
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
@@ -647,9 +649,11 @@ export default function TasksPanel({
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
             >
               <option value="all">👥 All Members</option>
-              {userNames.map(u => (
-                <option key={u.id} value={u.id}>👤 {u.name}</option>
-              ))}
+              {userNames
+                .filter(u => u.role === "user" || u.id === currentUserId)
+                .map(u => (
+                  <option key={u.id} value={u.id}>👤 {u.name}</option>
+                ))}
             </select>
           </div>
         )}

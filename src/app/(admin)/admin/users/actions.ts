@@ -16,14 +16,14 @@ export type AdminUserRow = {
 };
 
 /** Lightweight name lookup — available to all authenticated users for task attribution. */
-export async function fetchUserNamesAction(): Promise<{ id: string; name: string }[]> {
+export async function fetchUserNamesAction(): Promise<{ id: string; name: string; role: string }[]> {
   const user = await getCurrentUser();
   if (!user) return [];
   const { data } = await getSupabaseAdmin()
     .from("admin_users")
-    .select("id, name")
+    .select("id, name, role")
     .eq("is_active", true);
-  return (data ?? []) as { id: string; name: string }[];
+  return (data ?? []) as { id: string; name: string; role: string }[];
 }
 
 export async function fetchUsersAction(): Promise<AdminUserRow[]> {

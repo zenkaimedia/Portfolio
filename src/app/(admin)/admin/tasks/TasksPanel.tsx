@@ -40,6 +40,18 @@ const CAT_CFG: Record<Category, string> = {
   general:     "bg-slate-100 text-slate-600",
 };
 
+function fmtIST(dateStr: string): string {
+  return new Date(dateStr).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 function fmtDate(d: string) {
   const date = parseISO(d);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -79,8 +91,8 @@ function StatsBar() {
 }
 
 /* ── Task Card ───────────────────────────────────────────────────────────── */
-function TaskCard({ task, canEditDelete, onEdit, onDelete }: {
-  task: AdminTask; canEditDelete: boolean;
+function TaskCard({ task, canEditDelete, users, onEdit, onDelete }: {
+  task: AdminTask; canEditDelete: boolean; users: AdminUserRow[];
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
 }) {
@@ -145,6 +157,17 @@ function TaskCard({ task, canEditDelete, onEdit, onDelete }: {
         )}
       </div>
 
+      {/* Assigned by info */}
+      {task.assigned_to && task.assigned_to !== task.user_id && (() => {
+        const creator = users.find(u => u.id === task.user_id);
+        return creator ? (
+          <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-400">
+            Assigned by <span className="font-semibold text-slate-600">{creator.name}</span>
+            {" · "}{fmtIST(task.created_at)}
+          </div>
+        ) : null;
+      })()}
+
       {/* 3-dot admin menu */}
       {canEditDelete && (
         <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -200,6 +223,7 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
 
   async function save() {
     if (!title.trim()) { setErr("Title is required."); return; }
+    if (!due) { setErr("Due date is required."); return; }
     setSaving(true); setErr("");
 
     if (editTask) {
@@ -255,8 +279,8 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Due Date</label>
-              <input type="date" value={due} onChange={e => setDue(e.target.value)} className={input} />
+              <label className="mb-1 block text-xs font-semibold text-slate-500">Due Date <span className="text-red-500">*</span></label>
+              <input type="date" value={due} onChange={e => setDue(e.target.value)} required className={input} />
             </div>
           </div>
 
@@ -289,8 +313,8 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
 }
 
 /* ── Column ──────────────────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isAdmin, currentUserId, onAdd, onEdit, onDelete }: {
-  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; currentUserId: string;
+function KanbanColumn({ col, tasks, isAdmin, currentUserId, users, onAdd, onEdit, onDelete }: {
+  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; currentUserId: string; users: AdminUserRow[];
   onAdd: (s: TaskStatus) => void; onEdit: (t: AdminTask) => void; onDelete: (id: string) => void;
 }) {
   // Make the column itself a drop target so empty columns accept drops
@@ -318,7 +342,7 @@ function KanbanColumn({ col, tasks, isAdmin, currentUserId, onAdd, onEdit, onDel
             </div>
           )}
           {tasks.map(task => (
-            <TaskCard key={task.id} task={task}
+            <TaskCard key={task.id} task={task} users={users}
               canEditDelete={isAdmin || task.user_id === currentUserId}
               onEdit={onEdit} onDelete={onDelete} />
           ))}
@@ -329,8 +353,8 @@ function KanbanColumn({ col, tasks, isAdmin, currentUserId, onAdd, onEdit, onDel
 }
 
 /* ── Mobile task card (no drag, status buttons) ─────────────────────────── */
-function MobileTaskCard({ task, canEditDelete, onEdit, onDelete, onStatusChange }: {
-  task: AdminTask; canEditDelete: boolean;
+function MobileTaskCard({ task, canEditDelete, users, onEdit, onDelete, onStatusChange }: {
+  task: AdminTask; canEditDelete: boolean; users: AdminUserRow[];
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
@@ -399,13 +423,24 @@ function MobileTaskCard({ task, canEditDelete, onEdit, onDelete, onStatusChange 
           </div>
         </div>
       )}
+
+      {/* Assigned by info */}
+      {task.assigned_to && task.assigned_to !== task.user_id && (() => {
+        const creator = users.find(u => u.id === task.user_id);
+        return creator ? (
+          <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-400">
+            Assigned by <span className="font-semibold text-slate-600">{creator.name}</span>
+            {" · "}{fmtIST(task.created_at)}
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 }
 
 /* ── Mobile board (tabs + list, no DnD) ──────────────────────────────────── */
-function MobileBoard({ isAdmin, currentUserId, onAdd, onEdit, onDelete, onStatusChange }: {
-  isAdmin: boolean; currentUserId: string;
+function MobileBoard({ isAdmin, currentUserId, users, onAdd, onEdit, onDelete, onStatusChange }: {
+  isAdmin: boolean; currentUserId: string; users: AdminUserRow[];
   onAdd: (s: TaskStatus) => void;
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
@@ -453,6 +488,7 @@ function MobileBoard({ isAdmin, currentUserId, onAdd, onEdit, onDelete, onStatus
               key={task.id}
               task={task}
               canEditDelete={isAdmin || task.user_id === currentUserId}
+              users={users}
               onEdit={onEdit}
               onDelete={onDelete}
               onStatusChange={onStatusChange}
@@ -582,6 +618,7 @@ export default function TasksPanel({
           <MobileBoard
             isAdmin={isAdmin}
             currentUserId={currentUserId}
+            users={users}
             onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
             onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
             onDelete={(id) => setConfirmDel(id)}
@@ -597,7 +634,7 @@ export default function TasksPanel({
               {COLUMNS.map(col => (
                 <KanbanColumn
                   key={col.id} col={col} tasks={byStatus(col.id)}
-                  isAdmin={isAdmin} currentUserId={currentUserId}
+                  isAdmin={isAdmin} currentUserId={currentUserId} users={users}
                   onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
                   onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
                   onDelete={(id) => setConfirmDel(id)}
@@ -607,7 +644,7 @@ export default function TasksPanel({
             <DragOverlay dropAnimation={{ duration: 150 }}>
               {activeTask && (
                 <div className="rotate-2 scale-105 shadow-2xl">
-                  <TaskCard task={activeTask} canEditDelete={false} onEdit={() => {}} onDelete={() => {}} />
+                  <TaskCard task={activeTask} canEditDelete={false} users={[]} onEdit={() => {}} onDelete={() => {}} />
                 </div>
               )}
             </DragOverlay>

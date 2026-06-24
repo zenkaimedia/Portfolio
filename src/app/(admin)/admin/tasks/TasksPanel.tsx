@@ -79,8 +79,8 @@ function StatsBar() {
 }
 
 /* ── Task Card ───────────────────────────────────────────────────────────── */
-function TaskCard({ task, isAdmin, onEdit, onDelete }: {
-  task: AdminTask; isAdmin: boolean;
+function TaskCard({ task, canEditDelete, onEdit, onDelete }: {
+  task: AdminTask; canEditDelete: boolean;
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
 }) {
@@ -146,7 +146,7 @@ function TaskCard({ task, isAdmin, onEdit, onDelete }: {
       </div>
 
       {/* 3-dot admin menu */}
-      {isAdmin && (
+      {canEditDelete && (
         <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
           <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setMenu(!menu); }}
             className="rounded-lg p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500">
@@ -168,9 +168,9 @@ function TaskCard({ task, isAdmin, onEdit, onDelete }: {
 }
 
 /* ── Task Modal ──────────────────────────────────────────────────────────── */
-function TaskModal({ open, onClose, editTask, isAdmin, users, currentUserId }: {
+function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, currentUserId }: {
   open: boolean; onClose: () => void;
-  editTask: AdminTask | null; isAdmin: boolean;
+  editTask: AdminTask | null; isAdmin: boolean; canAssign: boolean;
   users: AdminUserRow[]; currentUserId: string;
 }) {
   const { addTask, updateTask: storeUpdate } = useAdminTaskStore();
@@ -260,8 +260,8 @@ function TaskModal({ open, onClose, editTask, isAdmin, users, currentUserId }: {
             </div>
           </div>
 
-          {/* Assign To — admin only */}
-          {isAdmin && (
+          {/* Assign To — admin or users with task_assign permission */}
+          {canAssign && (
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-500">Assign To</label>
               <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
@@ -289,8 +289,8 @@ function TaskModal({ open, onClose, editTask, isAdmin, users, currentUserId }: {
 }
 
 /* ── Column ──────────────────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
-  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean;
+function KanbanColumn({ col, tasks, isAdmin, currentUserId, onAdd, onEdit, onDelete }: {
+  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; currentUserId: string;
   onAdd: (s: TaskStatus) => void; onEdit: (t: AdminTask) => void; onDelete: (id: string) => void;
 }) {
   // Make the column itself a drop target so empty columns accept drops
@@ -318,7 +318,9 @@ function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
             </div>
           )}
           {tasks.map(task => (
-            <TaskCard key={task.id} task={task} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} />
+            <TaskCard key={task.id} task={task}
+              canEditDelete={isAdmin || task.user_id === currentUserId}
+              onEdit={onEdit} onDelete={onDelete} />
           ))}
         </div>
       </SortableContext>
@@ -327,8 +329,8 @@ function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
 }
 
 /* ── Mobile task card (no drag, status buttons) ─────────────────────────── */
-function MobileTaskCard({ task, isAdmin, onEdit, onDelete, onStatusChange }: {
-  task: AdminTask; isAdmin: boolean;
+function MobileTaskCard({ task, canEditDelete, onEdit, onDelete, onStatusChange }: {
+  task: AdminTask; canEditDelete: boolean;
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
@@ -359,7 +361,7 @@ function MobileTaskCard({ task, isAdmin, onEdit, onDelete, onStatusChange }: {
           <p className={`text-sm font-semibold text-slate-800 ${isDone ? "line-through text-slate-400" : ""}`}>{task.title}</p>
           {task.description && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{task.description}</p>}
         </div>
-        {isAdmin && (
+        {canEditDelete && (
           <div className="flex shrink-0 gap-1">
             <button onClick={() => onEdit(task)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-gold">✏</button>
             <button onClick={() => onDelete(task.id)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">🗑</button>
@@ -402,8 +404,8 @@ function MobileTaskCard({ task, isAdmin, onEdit, onDelete, onStatusChange }: {
 }
 
 /* ── Mobile board (tabs + list, no DnD) ──────────────────────────────────── */
-function MobileBoard({ isAdmin, onAdd, onEdit, onDelete, onStatusChange }: {
-  isAdmin: boolean;
+function MobileBoard({ isAdmin, currentUserId, onAdd, onEdit, onDelete, onStatusChange }: {
+  isAdmin: boolean; currentUserId: string;
   onAdd: (s: TaskStatus) => void;
   onEdit: (t: AdminTask) => void;
   onDelete: (id: string) => void;
@@ -450,7 +452,7 @@ function MobileBoard({ isAdmin, onAdd, onEdit, onDelete, onStatusChange }: {
             <MobileTaskCard
               key={task.id}
               task={task}
-              isAdmin={isAdmin}
+              canEditDelete={isAdmin || task.user_id === currentUserId}
               onEdit={onEdit}
               onDelete={onDelete}
               onStatusChange={onStatusChange}
@@ -472,12 +474,13 @@ function MobileBoard({ isAdmin, onAdd, onEdit, onDelete, onStatusChange }: {
 
 /* ── Main Panel ──────────────────────────────────────────────────────────── */
 export default function TasksPanel({
-  initialTasks, users, currentUserId, isAdmin,
+  initialTasks, users, currentUserId, isAdmin, canAssign,
 }: {
   initialTasks: AdminTask[];
   users: AdminUserRow[];
   currentUserId: string;
   isAdmin: boolean;
+  canAssign: boolean;
 }) {
   const { setTasks, moveTask, removeTask, filter, search, setFilter, setSearch } = useAdminTaskStore();
   const byStatus = useAdminTaskStore((s) => s.byStatus);
@@ -577,6 +580,7 @@ export default function TasksPanel({
         {isMobile ? (
           <MobileBoard
             isAdmin={isAdmin}
+            currentUserId={currentUserId}
             onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
             onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
             onDelete={(id) => setConfirmDel(id)}
@@ -592,7 +596,7 @@ export default function TasksPanel({
               {COLUMNS.map(col => (
                 <KanbanColumn
                   key={col.id} col={col} tasks={byStatus(col.id)}
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin} currentUserId={currentUserId}
                   onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
                   onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
                   onDelete={(id) => setConfirmDel(id)}
@@ -602,7 +606,7 @@ export default function TasksPanel({
             <DragOverlay dropAnimation={{ duration: 150 }}>
               {activeTask && (
                 <div className="rotate-2 scale-105 shadow-2xl">
-                  <TaskCard task={activeTask} isAdmin={false} onEdit={() => {}} onDelete={() => {}} />
+                  <TaskCard task={activeTask} canEditDelete={false} onEdit={() => {}} onDelete={() => {}} />
                 </div>
               )}
             </DragOverlay>
@@ -630,6 +634,7 @@ export default function TasksPanel({
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         editTask={editTask}
         isAdmin={isAdmin}
+        canAssign={canAssign}
         users={users}
         currentUserId={currentUserId}
       />

@@ -80,7 +80,11 @@ export async function updateTaskAction(input: {
   progress: number;
 }): Promise<{ ok: true } | { error: string }> {
   const user = await authedUser();
-  if (user.role !== "admin") return { error: "Only admins can edit tasks." };
+  // Admin can edit any task; users can only edit tasks they created
+  if (user.role !== "admin") {
+    const { data: task } = await getSupabaseAdmin().from("tasks").select("user_id").eq("id", input.id).single();
+    if (!task || task.user_id !== user.id) return { error: "You can only edit tasks you created." };
+  }
 
   const { error } = await getSupabaseAdmin()
     .from("tasks")
@@ -115,8 +119,10 @@ export async function updateTaskStatusAction(
 
 export async function deleteTaskAction(id: string): Promise<{ ok: true } | { error: string }> {
   const user = await authedUser();
-  if (user.role !== "admin") return { error: "Only admins can delete tasks." };
-  const { error } = await getSupabaseAdmin().from("tasks").delete().eq("id", id);
+  let query = getSupabaseAdmin().from("tasks").delete().eq("id", id);
+  // Users can only delete tasks they created
+  if (user.role !== "admin") query = query.eq("user_id", user.id);
+  const { error } = await query;
   if (error) return { error: error.message };
   return { ok: true };
 }

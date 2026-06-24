@@ -1,5 +1,6 @@
 import { requireAccess } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";
+import type { Permission } from "@/lib/permissions";
 import { fetchTasksAction } from "./actions";
 import { fetchUsersAction } from "../users/actions";
 import TasksPanel from "./TasksPanel";
@@ -28,6 +29,7 @@ export default async function TasksPage() {
           users={users}
           currentUserId={user.id}
           isAdmin={user.role === "admin"}
+          canAssign={user.role === "admin" || user.permissions.includes(PERMISSIONS.TASK_ASSIGN as Permission)}
         />
       </div>
     </div>

@@ -17,6 +17,7 @@ const ALL_PERMISSIONS = [
   { key: PERMISSIONS.COMPRESS,    label: "Compress Media",       desc: "Compress images" },
   { key: PERMISSIONS.BRAND_STORY, label: "Brand Story & FAQs",  desc: "Edit brand content" },
   { key: PERMISSIONS.TASKS,       label: "My Tasks",             desc: "Personal task board" },
+  { key: PERMISSIONS.TASK_ASSIGN, label: "Assign Tasks to Others", desc: "Can assign tasks to other team members" },
 ];
 
 function ConfirmDialog({ title, message, onConfirm, onCancel }: {

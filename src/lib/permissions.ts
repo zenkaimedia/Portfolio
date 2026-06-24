@@ -7,6 +7,7 @@ export const PERMISSIONS = {
   COMPRESS:    "compress",
   BRAND_STORY: "brand_story",
   TASKS:       "tasks",
+  TASK_ASSIGN: "task_assign",
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];

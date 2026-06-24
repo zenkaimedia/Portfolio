@@ -304,12 +304,10 @@ function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
           <span className="text-sm font-bold text-slate-700">{col.label}</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{tasks.length}</span>
         </div>
-        {isAdmin && (
-          <button onClick={() => onAdd(col.id)}
-            className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-            + Add
-          </button>
-        )}
+        <button onClick={() => onAdd(col.id)}
+          className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+          + Add
+        </button>
       </div>
       <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef}
@@ -462,14 +460,12 @@ function MobileBoard({ isAdmin, onAdd, onEdit, onDelete, onStatusChange }: {
       </div>
 
       {/* Add task FAB */}
-      {isAdmin && (
-        <button
-          onClick={() => onAdd(activeTab)}
-          className="mt-4 w-full shrink-0 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
-        >
-          + Add Task
-        </button>
-      )}
+      <button
+        onClick={() => onAdd(activeTab)}
+        className="mt-4 w-full shrink-0 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
+      >
+        + Add Task
+      </button>
     </div>
   );
 }

@@ -27,6 +27,14 @@ type NavGroup = {
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    section: "Team",
+    items: [
+      { href: "/admin/tasks",       label: "My Tasks",           icon: TaskIcon,     exact: false, permission: PERMISSIONS.TASKS       },
+      { href: "/admin/messages",    label: "Message Templates",  icon: MessageIcon,  exact: false, permission: PERMISSIONS.MESSAGES    },
+      { href: "/admin/brand-story", label: "Script",             icon: BookIcon,     exact: false, permission: PERMISSIONS.BRAND_STORY },
+    ],
+  },
+  {
     section: "Portfolio",
     items: [
       { href: "/admin",             label: "Add Project",       icon: PlusIcon,     exact: true,  permission: PERMISSIONS.PROJECTS    },
@@ -34,14 +42,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/share",       label: "Portfolio Sharing",  icon: LinkIcon,     exact: false, permission: PERMISSIONS.SHARE       },
       { href: "/admin/compress",    label: "Compress Media",     icon: CompressIcon, exact: false, permission: PERMISSIONS.COMPRESS    },
       { href: "/admin/storage",     label: "Storage",            icon: StorageIcon,  exact: false, permission: PERMISSIONS.STORAGE     },
-    ],
-  },
-  {
-    section: "Team",
-    items: [
-      { href: "/admin/tasks",       label: "My Tasks",           icon: TaskIcon,     exact: false, permission: PERMISSIONS.TASKS       },
-      { href: "/admin/messages",    label: "Message Templates",  icon: MessageIcon,  exact: false, permission: PERMISSIONS.MESSAGES    },
-      { href: "/admin/brand-story", label: "Script",             icon: BookIcon,     exact: false, permission: PERMISSIONS.BRAND_STORY },
     ],
   },
   {
@@ -71,20 +71,9 @@ export default function AdminSidebar({ user }: { user: AdminUser | null }) {
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
-      {/* Logo + user badge */}
+      {/* Logo */}
       <div className="border-b border-line px-5 py-4">
         <Logo className="h-6" />
-        {user && (
-          <div className="mt-2.5 flex items-center gap-2">
-            <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gold/20 font-mono text-[10px] font-bold text-gold">
-              {user.name.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate font-mono text-[11px] font-medium text-bone">{user.name}</p>
-              <p className="font-mono text-[9px] capitalize text-muted">{user.role}</p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Grouped nav */}

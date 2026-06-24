@@ -294,7 +294,7 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
                 <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
                   {currentUserObj && (
                     <option value={currentUserId}>
-                      {currentUserObj.name} (You) — Default
+                      {currentUserObj.name} (You)
                     </option>
                   )}
                   {otherUsers.map(u => (

@@ -2,7 +2,7 @@ import { requireAccess } from "@/lib/auth";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
 import { fetchTasksAction } from "./actions";
-import { fetchUsersAction } from "../users/actions";
+import { fetchUsersAction, fetchUserNamesAction } from "../users/actions";
 import TasksPanel from "./TasksPanel";
 import type { AdminTask } from "@/types/adminTask";
 
@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function TasksPage() {
   const user = await requireAccess(PERMISSIONS.TASKS);
 
-  const [tasks, users] = await Promise.all([
+  const [tasks, users, userNames] = await Promise.all([
     fetchTasksAction().catch(() => [] as AdminTask[]),
-    fetchUsersAction().catch(() => []),
+    fetchUsersAction().catch(() => []),          // full list (admin only, for assign dropdown)
+    fetchUserNamesAction().catch(() => []),      // id+name only (all users, for attribution)
   ]);
 
   return (
@@ -27,6 +28,7 @@ export default async function TasksPage() {
         <TasksPanel
           initialTasks={tasks}
           users={users}
+          userNames={userNames}
           currentUserId={user.id}
           isAdmin={user.role === "admin"}
           canAssign={user.role === "admin" || user.permissions.includes(PERMISSIONS.TASK_ASSIGN as Permission)}

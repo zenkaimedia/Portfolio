@@ -15,6 +15,17 @@ export type AdminUserRow = {
   last_login_at: string | null;
 };
 
+/** Lightweight name lookup — available to all authenticated users for task attribution. */
+export async function fetchUserNamesAction(): Promise<{ id: string; name: string }[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const { data } = await getSupabaseAdmin()
+    .from("admin_users")
+    .select("id, name")
+    .eq("is_active", true);
+  return (data ?? []) as { id: string; name: string }[];
+}
+
 export async function fetchUsersAction(): Promise<AdminUserRow[]> {
   if (!(await isAdmin())) return [];
   const { data } = await getSupabaseAdmin()

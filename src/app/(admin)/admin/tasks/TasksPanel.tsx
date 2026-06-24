@@ -41,7 +41,10 @@ const CAT_CFG: Record<Category, string> = {
 };
 
 function fmtIST(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("en-IN", {
+  // Supabase returns timestamps without timezone info (no Z/+offset).
+  // Append Z so JavaScript treats it as UTC before converting to IST.
+  const utc = /[Z+]/.test(dateStr) ? dateStr : dateStr + "Z";
+  return new Date(utc).toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     day: "numeric",
     month: "short",

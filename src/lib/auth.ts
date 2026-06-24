@@ -53,21 +53,31 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
     const userId = token.slice(0, sep);
     const sig = token.slice(sep + 1);
 
-    const { data } = await getSupabaseAdmin()
+    // Try with is_super_admin; fall back if column doesn't exist yet (migration not run)
+    let row: Record<string, unknown> | null = null;
+
+    const { data: d1 } = await getSupabaseAdmin()
       .from("admin_users")
       .select("id, name, email, role, permissions, is_active, is_super_admin, password_hash")
-      .eq("id", userId)
-      .eq("is_active", true)
-      .single();
+      .eq("id", userId).eq("is_active", true).single();
 
-    if (!data) return null;
+    if (d1) {
+      row = d1 as Record<string, unknown>;
+    } else {
+      const { data: d2 } = await getSupabaseAdmin()
+        .from("admin_users")
+        .select("id, name, email, role, permissions, is_active, password_hash")
+        .eq("id", userId).eq("is_active", true).single();
+      if (d2) row = { ...(d2 as Record<string, unknown>), is_super_admin: false };
+    }
+
+    if (!row) return null;
 
     // Verify signature against current password hash
-    const expected = signSession(userId, data.password_hash as string);
+    const expected = signSession(userId, row.password_hash as string);
     if (sig !== expected) return null;
 
-    // Return user without exposing password_hash
-    const { password_hash: _ph, ...user } = data as typeof data & { password_hash: string };
+    const { password_hash: _ph, ...user } = row;
     return user as AdminUser;
   } catch {
     return null;

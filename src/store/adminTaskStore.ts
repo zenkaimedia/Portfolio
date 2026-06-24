@@ -63,7 +63,7 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
       total: tasks.length,
       inProgress: tasks.filter((t) => t.status === "in_progress").length,
       done: tasks.filter((t) => t.status === "done").length,
-      overdue: tasks.filter((t) => t.due_date && t.status !== "done" && new Date(t.due_date) < now).length,
+      overdue: tasks.filter((t) => t.due_date && t.status !== "done" && new Date(t.due_date + "T00:00:00Z") < now).length,
     };
   },
 }));

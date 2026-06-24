@@ -6,6 +6,7 @@ import type { AdminUserRow } from "./actions";
 import { createUserAction, updateUserAction, toggleUserActiveAction, deleteUserAction } from "./actions";
 import { PERMISSIONS } from "@/lib/permissions";
 import PasswordInput from "@/components/ui/PasswordInput";
+import { fmtIST } from "@/lib/dateIST";
 
 const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bone outline-none transition-colors focus:border-gold placeholder:text-muted/50";
 
@@ -151,7 +152,7 @@ function UserCard({ user, isSelf, onEdit, onToggle, onDelete }: {
           <p className="font-mono text-[11px] text-muted">{user.email}</p>
           {user.last_login_at && (
             <p className="font-mono text-[10px] text-muted/60">
-              Last login: {new Date(user.last_login_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              Last login: {fmtIST(user.last_login_at)}
             </p>
           )}
           {user.role === "user" && user.permissions.length > 0 && (

@@ -10,7 +10,8 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { format, isPast, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { fmtIST } from "@/lib/dateIST";
 import { useAdminTaskStore } from "@/store/adminTaskStore";
 import type { AdminTask, TaskStatus, Priority, Category } from "@/types/adminTask";
 import type { AdminUserRow } from "../users/actions";
@@ -39,21 +40,6 @@ const CAT_CFG: Record<Category, string> = {
   marketing:   "bg-pink-100 text-pink-700",
   general:     "bg-slate-100 text-slate-600",
 };
-
-function fmtIST(dateStr: string): string {
-  // Supabase returns timestamps without timezone info (no Z/+offset).
-  // Append Z so JavaScript treats it as UTC before converting to IST.
-  const utc = /[Z+]/.test(dateStr) ? dateStr : dateStr + "Z";
-  return new Date(utc).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
 function fmtDate(d: string) {
   const date = parseISO(d);
@@ -108,7 +94,7 @@ function TaskCard({ task, canEditDelete, userNames, onEdit, onDelete }: {
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
   const p = PRIORITY_CFG[task.priority];
   const isDone = task.status === "done";
-  const overdue = task.due_date && !isDone && isPast(parseISO(task.due_date));
+  const overdue = task.due_date && !isDone && new Date(task.due_date + "T00:00:00Z") < new Date();
   const [menu, setMenu] = useState(false);
 
   return (
@@ -371,7 +357,7 @@ function MobileTaskCard({ task, canEditDelete, userNames, onEdit, onDelete, onSt
 }) {
   const p = PRIORITY_CFG[task.priority];
   const isDone = task.status === "done";
-  const overdue = task.due_date && !isDone && isPast(parseISO(task.due_date));
+  const overdue = task.due_date && !isDone && new Date(task.due_date + "T00:00:00Z") < new Date();
 
   const nextStatus: Record<TaskStatus, { label: string; status: TaskStatus; cls: string } | null> = {
     todo:        { label: "Start →",   status: "in_progress", cls: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" },

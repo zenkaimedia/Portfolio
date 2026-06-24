@@ -204,14 +204,16 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
   useEffect(() => {
     if (editTask) {
       setTitle(editTask.title); setDesc(editTask.description ?? "");
-      setPriority(editTask.priority); setAssignedTo(editTask.assigned_to ?? "");
+      setPriority(editTask.priority);
+      setAssignedTo(editTask.assigned_to ?? currentUserId);
       setDue(editTask.due_date ?? "");
     } else {
       setTitle(""); setDesc(""); setPriority("medium");
-      setAssignedTo(isAdmin ? "" : currentUserId); setDue("");
+      setAssignedTo(currentUserId); // always default to self
+      setDue("");
     }
     setErr("");
-  }, [editTask, open, isAdmin, currentUserId]);
+  }, [editTask, open, currentUserId]);
 
   if (!open) return null;
 
@@ -281,15 +283,27 @@ function TaskModal({ open, onClose, editTask, isAdmin, canAssign, users, current
           </div>
 
           {/* Assign To — admin or users with task_assign permission */}
-          {canAssign && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Assign To</label>
-              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
-                <option value="">— Assign to self —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
-              </select>
-            </div>
-          )}
+          {canAssign && (() => {
+            // Current user first as "(You) Default"
+            // Then non-admin users only (users cannot be assigned to admins)
+            const currentUserObj = users.find(u => u.id === currentUserId);
+            const otherUsers = users.filter(u => u.id !== currentUserId && u.role === "user");
+            return (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">Assign To</label>
+                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} className={input}>
+                  {currentUserObj && (
+                    <option value={currentUserId}>
+                      {currentUserObj.name} (You) — Default
+                    </option>
+                  )}
+                  {otherUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} (User)</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })()}
         </div>
 
         <p className="mt-3 text-[11px] text-slate-400">

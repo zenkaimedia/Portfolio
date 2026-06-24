@@ -64,7 +64,11 @@ function fmtDate(d: string) {
 
 /* ── Stats bar ───────────────────────────────────────────────────────────── */
 function StatsBar() {
-  const tasks = useAdminTaskStore((s) => s.tasks);
+  const allTasks = useAdminTaskStore((s) => s.tasks);
+  const userFilter = useAdminTaskStore((s) => s.userFilter);
+  const tasks = userFilter === "all"
+    ? allTasks
+    : allTasks.filter((t) => (t.assigned_to || t.user_id) === userFilter);
   const now = new Date();
   const stats = {
     total:      tasks.length,

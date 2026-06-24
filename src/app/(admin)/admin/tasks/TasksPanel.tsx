@@ -576,17 +576,21 @@ export default function TasksPanel({
       <div className="mb-5 shrink-0"><StatsBar /></div>
 
       {/* Filters + search */}
-      <div className="mb-4 flex shrink-0 flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="mb-4 shrink-0">
+        {/* Filter chips — horizontal scroll on mobile, wrap on desktop */}
+        <div className="flex overflow-x-auto gap-1.5 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0">
           {FILTERS.map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${filter === f.key ? "bg-blue-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"}`}>
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${filter === f.key ? "bg-blue-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300"}`}>
               {f.label}
             </button>
           ))}
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
-          className="ml-auto w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+        {/* Search — desktop only */}
+        <div className="hidden sm:flex sm:justify-end sm:mt-2">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
+            className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
+        </div>
       </div>
 
       {/* Board — mobile tabs or desktop Kanban */}

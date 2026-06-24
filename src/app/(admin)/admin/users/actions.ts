@@ -27,7 +27,10 @@ export async function fetchUserNamesAction(): Promise<{ id: string; name: string
 }
 
 export async function fetchUsersAction(): Promise<AdminUserRow[]> {
-  if (!(await isAdmin())) return [];
+  const user = await getCurrentUser();
+  if (!user) return [];
+  // Admins get the full list; users with task_assign also need it for the assign dropdown
+  if (user.role !== "admin" && !user.permissions.includes("task_assign")) return [];
   const { data } = await getSupabaseAdmin()
     .from("admin_users")
     .select("id, name, email, role, is_active, permissions, created_at, last_login_at")

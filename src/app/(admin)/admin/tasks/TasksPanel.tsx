@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   DndContext, DragOverlay, DragEndEvent, DragOverEvent,
   PointerSensor, useSensor, useSensors, closestCorners,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext, useSortable, verticalListSortingStrategy,
@@ -304,10 +305,13 @@ function TaskModal({ open, onClose, editTask, defaultStatus = "todo", users, cur
 }
 
 /* ── Column ──────────────────────────────────────────────────────────────── */
-function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete, activeId }: {
-  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean; activeId: string | null;
+function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
+  col: typeof COLUMNS[0]; tasks: AdminTask[]; isAdmin: boolean;
   onAdd: (s: TaskStatus) => void; onEdit: (t: AdminTask) => void; onDelete: (id: string) => void;
 }) {
+  // Make the column itself a drop target so empty columns accept drops
+  const { setNodeRef, isOver } = useDroppable({ id: col.id });
+
   return (
     <div className="flex w-full flex-col sm:w-72 xl:flex-1">
       <div className="mb-3 flex items-center justify-between">
@@ -324,10 +328,11 @@ function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete, activeId }
         )}
       </div>
       <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        <div className={`flex min-h-[200px] flex-1 flex-col gap-3 rounded-2xl border p-3 ${col.color} ${activeId ? "ring-2 ring-inset ring-blue-200" : ""}`}>
+        <div ref={setNodeRef}
+          className={`flex min-h-[200px] flex-1 flex-col gap-3 rounded-2xl border p-3 transition-colors ${col.color} ${isOver ? "ring-2 ring-blue-400 ring-inset bg-blue-50/60" : ""}`}>
           {tasks.length === 0 && (
             <div className="flex flex-1 items-center justify-center py-8 text-center">
-              <p className="text-sm text-slate-400">Drop tasks here</p>
+              <p className="text-sm text-slate-400">{isOver ? "Release to drop" : "Drop tasks here"}</p>
             </div>
           )}
           {tasks.map(task => (
@@ -359,31 +364,32 @@ export default function TasksPanel({
 
   useEffect(() => { setTasks(initialTasks); }, [initialTasks, setTasks]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    setActiveId(null);
-    if (!over || active.id === over.id) return;
-    const overId = String(over.id);
-    const isColumn = ["todo", "in_progress", "done"].includes(overId);
-    const targetStatus = isColumn ? (overId as TaskStatus) : tasks.find(t => t.id === overId)?.status;
-    if (!targetStatus) return;
-    const task = tasks.find(t => t.id === active.id);
-    if (task && task.status !== targetStatus) {
-      moveTask(String(active.id), targetStatus);
-      updateTaskStatusAction(String(active.id), targetStatus);
-    }
+  const STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
+
+  function getTargetStatus(overId: string): TaskStatus | null {
+    if (STATUSES.includes(overId as TaskStatus)) return overId as TaskStatus;
+    return tasks.find(t => t.id === overId)?.status ?? null;
   }
 
   function handleDragOver({ active, over }: DragOverEvent) {
     if (!over) return;
-    const overTask = tasks.find(t => t.id === over.id);
-    if (overTask) {
-      const activeTask = tasks.find(t => t.id === active.id);
-      if (activeTask && activeTask.status !== overTask.status) {
-        moveTask(String(active.id), overTask.status);
-      }
+    const targetStatus = getTargetStatus(String(over.id));
+    if (!targetStatus) return;
+    const activeTask = tasks.find(t => t.id === String(active.id));
+    if (activeTask && activeTask.status !== targetStatus) {
+      moveTask(String(active.id), targetStatus);
     }
+  }
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null);
+    if (!over) return;
+    const targetStatus = getTargetStatus(String(over.id));
+    if (!targetStatus) return;
+    // Persist to DB regardless (covers both same-column reorder and cross-column)
+    updateTaskStatusAction(String(active.id), targetStatus);
   }
 
   async function handleDelete(id: string) {
@@ -433,7 +439,7 @@ export default function TasksPanel({
             {COLUMNS.map(col => (
               <KanbanColumn
                 key={col.id} col={col} tasks={byStatus(col.id)}
-                isAdmin={isAdmin} activeId={activeId}
+                isAdmin={isAdmin}
                 onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
                 onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
                 onDelete={(id) => setConfirmDel(id)}

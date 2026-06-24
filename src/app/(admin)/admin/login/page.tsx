@@ -47,9 +47,6 @@ export default function AdminLoginPage() {
         </button>
       </form>
 
-      <p className="mt-6 font-mono text-[10px] text-muted">
-        Default: admin@zenkai.in + your ADMIN_PASSWORD
-      </p>
     </main>
   );
 }

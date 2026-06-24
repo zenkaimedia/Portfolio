@@ -550,6 +550,7 @@ export default function TasksPanel({
     { key: "high",   label: "🟠 High" },
     { key: "medium", label: "🟡 Medium" },
     { key: "low",    label: "⚪ Low" },
+    { key: "due",    label: "📅 Due" },
   ];
 
   return (

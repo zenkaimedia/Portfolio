@@ -36,6 +36,7 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
       .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()))
       .filter((t) => {
         if (filter === "all") return true;
+        if (filter === "due") return !!t.due_date && t.status !== "done" && new Date(t.due_date) < new Date();
         return t.priority === filter;
       })
       .sort((a, b) => {

@@ -36,8 +36,7 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
       .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()))
       .filter((t) => {
         if (filter === "all") return true;
-        if (filter === "high" || filter === "urgent") return t.priority === filter || t.priority === "urgent" || t.priority === "high";
-        return t.category === filter || t.priority === filter;
+        return t.priority === filter;
       })
       .sort((a, b) => {
         const p = { urgent: 0, high: 1, medium: 2, low: 3 };

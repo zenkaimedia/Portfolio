@@ -546,12 +546,11 @@ export default function TasksPanel({
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
   const FILTERS = [
-    { key: "all", label: "All" },
+    { key: "all",    label: "All" },
     { key: "urgent", label: "🔴 Urgent" },
-    { key: "high", label: "High Priority" },
-    { key: "design", label: "Design" },
-    { key: "development", label: "Dev" },
-    { key: "marketing", label: "Marketing" },
+    { key: "high",   label: "🟠 High" },
+    { key: "medium", label: "🟡 Medium" },
+    { key: "low",    label: "⚪ Low" },
   ];
 
   return (

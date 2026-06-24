@@ -52,11 +52,23 @@ export async function fetchUsersAction(): Promise<AdminUserRow[]> {
   const user = await getCurrentUser();
   if (!user) return [];
   if (user.role !== "admin" && !user.permissions.includes("task_assign")) return [];
-  const { data } = await getSupabaseAdmin()
+  const supabase = getSupabaseAdmin();
+
+  // Try with is_super_admin; fall back if column doesn't exist yet
+  const { data: withSA } = await supabase
     .from("admin_users")
     .select("id, name, email, role, is_active, is_super_admin, permissions, created_at, last_login_at")
     .order("created_at", { ascending: true });
-  return (data ?? []) as AdminUserRow[];
+
+  if (withSA && withSA.length >= 0) return withSA as AdminUserRow[];
+
+  // Fallback without is_super_admin
+  const { data } = await supabase
+    .from("admin_users")
+    .select("id, name, email, role, is_active, permissions, created_at, last_login_at")
+    .order("created_at", { ascending: true });
+
+  return ((data ?? []) as Omit<AdminUserRow, "is_super_admin">[]).map(u => ({ ...u, is_super_admin: false }));
 }
 
 export async function createUserAction(input: {

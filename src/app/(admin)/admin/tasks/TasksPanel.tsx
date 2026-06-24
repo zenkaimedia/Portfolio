@@ -651,7 +651,7 @@ export default function TasksPanel({
             <DragOverlay dropAnimation={{ duration: 150 }}>
               {activeTask && (
                 <div className="rotate-2 scale-105 shadow-2xl">
-                  <TaskCard task={activeTask} canEditDelete={false} users={[]} onEdit={() => {}} onDelete={() => {}} />
+                  <TaskCard task={activeTask} canEditDelete={false} userNames={[]} onEdit={() => {}} onDelete={() => {}} />
                 </div>
               )}
             </DragOverlay>
@@ -680,7 +680,7 @@ export default function TasksPanel({
         editTask={editTask}
         isAdmin={isAdmin}
         canAssign={canAssign}
-        userNames={userNames}
+        users={users}
         currentUserId={currentUserId}
       />
     </div>

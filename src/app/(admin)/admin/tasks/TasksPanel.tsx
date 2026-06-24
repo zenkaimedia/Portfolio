@@ -545,6 +545,8 @@ export default function TasksPanel({
   const tasks = useAdminTaskStore(s => s.tasks);
 
   useEffect(() => { setTasks(initialTasks); }, [initialTasks, setTasks]);
+  // Default view: current user's tasks
+  useEffect(() => { setUserFilter(currentUserId); }, [currentUserId, setUserFilter]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 

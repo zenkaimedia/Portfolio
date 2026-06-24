@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   DndContext, DragOverlay, DragEndEvent, DragOverEvent,
   PointerSensor, useSensor, useSensors, closestCorners,
@@ -344,6 +344,152 @@ function KanbanColumn({ col, tasks, isAdmin, onAdd, onEdit, onDelete }: {
   );
 }
 
+/* ── Mobile task card (no drag, status buttons) ─────────────────────────── */
+function MobileTaskCard({ task, isAdmin, onEdit, onDelete, onStatusChange }: {
+  task: AdminTask; isAdmin: boolean;
+  onEdit: (t: AdminTask) => void;
+  onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: TaskStatus) => void;
+}) {
+  const p = PRIORITY_CFG[task.priority];
+  const isDone = task.status === "done";
+  const overdue = task.due_date && !isDone && isPast(parseISO(task.due_date));
+
+  const nextStatus: Record<TaskStatus, { label: string; status: TaskStatus; cls: string } | null> = {
+    todo:        { label: "Start →",   status: "in_progress", cls: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" },
+    in_progress: { label: "Done ✓",   status: "done",        cls: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100" },
+    done:        { label: "Reopen",   status: "todo",        cls: "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100" },
+  };
+  const next = nextStatus[task.status];
+
+  return (
+    <div className={`rounded-xl border bg-white p-4 ${isDone ? "opacity-60" : "border-slate-200"} ${task.status === "in_progress" ? "border-l-[3px] border-l-blue-500" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex flex-wrap gap-1.5">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${p.cls}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.label}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${CAT_CFG[task.category]}`}>
+              {task.category.charAt(0).toUpperCase() + task.category.slice(1)}
+            </span>
+          </div>
+          <p className={`text-sm font-semibold text-slate-800 ${isDone ? "line-through text-slate-400" : ""}`}>{task.title}</p>
+          {task.description && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{task.description}</p>}
+        </div>
+        {isAdmin && (
+          <div className="flex shrink-0 gap-1">
+            <button onClick={() => onEdit(task)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-gold">✏</button>
+            <button onClick={() => onDelete(task.id)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">🗑</button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {task.assignee && (
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
+              {task.assignee.name.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          {task.due_date && (
+            <span className={`text-[11px] font-medium ${overdue ? "text-red-600" : "text-slate-400"}`}>
+              {overdue ? "⚠ " : ""}{fmtDate(task.due_date)}
+            </span>
+          )}
+        </div>
+        {next && (
+          <button
+            onClick={() => onStatusChange(task.id, next.status)}
+            className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${next.cls}`}
+          >
+            {next.label}
+          </button>
+        )}
+      </div>
+
+      {task.status === "in_progress" && task.progress > 0 && (
+        <div className="mt-3">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-blue-500" style={{ width: `${task.progress}%` }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Mobile board (tabs + list, no DnD) ──────────────────────────────────── */
+function MobileBoard({ isAdmin, onAdd, onEdit, onDelete, onStatusChange }: {
+  isAdmin: boolean;
+  onAdd: (s: TaskStatus) => void;
+  onEdit: (t: AdminTask) => void;
+  onDelete: (id: string) => void;
+  onStatusChange: (id: string, status: TaskStatus) => void;
+}) {
+  const byStatus = useAdminTaskStore((s) => s.byStatus);
+  const [activeTab, setActiveTab] = useState<TaskStatus>("todo");
+
+  const tabItems = COLUMNS.map(col => ({
+    ...col,
+    count: byStatus(col.id).length,
+  }));
+
+  const tasks = byStatus(activeTab);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Tabs */}
+      <div className="mb-3 flex shrink-0 rounded-xl border border-slate-200 bg-white p-1">
+        {tabItems.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold transition ${
+              activeTab === tab.id ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <span>{tab.label}</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Task list */}
+      <div className="flex-1 space-y-3 overflow-y-auto">
+        {tasks.length === 0 ? (
+          <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
+            <p className="text-sm text-slate-400">No tasks here</p>
+          </div>
+        ) : (
+          tasks.map(task => (
+            <MobileTaskCard
+              key={task.id}
+              task={task}
+              isAdmin={isAdmin}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onStatusChange={onStatusChange}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Add task FAB */}
+      {isAdmin && (
+        <button
+          onClick={() => onAdd(activeTab)}
+          className="mt-4 w-full shrink-0 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
+        >
+          + Add Task
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── Main Panel ──────────────────────────────────────────────────────────── */
 export default function TasksPanel({
   initialTasks, users, currentUserId, isAdmin,
@@ -355,6 +501,16 @@ export default function TasksPanel({
 }) {
   const { setTasks, moveTask, removeTask, filter, search, setFilter, setSearch } = useAdminTaskStore();
   const byStatus = useAdminTaskStore((s) => s.byStatus);
+
+  // Detect mobile
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<TaskStatus>("todo");
   const [editTask, setEditTask] = useState<AdminTask | null>(null);
@@ -398,6 +554,11 @@ export default function TasksPanel({
     setConfirmDel(null);
   }
 
+  async function handleStatusChange(id: string, status: TaskStatus) {
+    moveTask(id, status);
+    await updateTaskStatusAction(id, status);
+  }
+
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
   const FILTERS = [
@@ -428,33 +589,42 @@ export default function TasksPanel({
           className="ml-auto w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
       </div>
 
-      {/* Kanban Board */}
+      {/* Board — mobile tabs or desktop Kanban */}
       <div className="flex-1 overflow-hidden">
-        <DndContext sensors={sensors} collisionDetection={closestCorners}
-          onDragStart={({ active }) => setActiveId(String(active.id))}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex h-full flex-col gap-4 overflow-y-auto sm:flex-row sm:overflow-x-auto sm:overflow-y-hidden sm:pb-4">
-            {COLUMNS.map(col => (
-              <KanbanColumn
-                key={col.id} col={col} tasks={byStatus(col.id)}
-                isAdmin={isAdmin}
-                onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
-                onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
-                onDelete={(id) => setConfirmDel(id)}
-              />
-            ))}
-          </div>
-
-          <DragOverlay dropAnimation={{ duration: 150 }}>
-            {activeTask && (
-              <div className="rotate-2 scale-105 shadow-2xl">
-                <TaskCard task={activeTask} isAdmin={false} onEdit={() => {}} onDelete={() => {}} />
-              </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+        {isMobile ? (
+          <MobileBoard
+            isAdmin={isAdmin}
+            onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
+            onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
+            onDelete={(id) => setConfirmDel(id)}
+            onStatusChange={handleStatusChange}
+          />
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCorners}
+            onDragStart={({ active }) => setActiveId(String(active.id))}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex h-full flex-row gap-4 overflow-x-auto overflow-y-hidden pb-4">
+              {COLUMNS.map(col => (
+                <KanbanColumn
+                  key={col.id} col={col} tasks={byStatus(col.id)}
+                  isAdmin={isAdmin}
+                  onAdd={(s) => { setModalStatus(s); setEditTask(null); setModalOpen(true); }}
+                  onEdit={(t) => { setEditTask(t); setModalOpen(true); }}
+                  onDelete={(id) => setConfirmDel(id)}
+                />
+              ))}
+            </div>
+            <DragOverlay dropAnimation={{ duration: 150 }}>
+              {activeTask && (
+                <div className="rotate-2 scale-105 shadow-2xl">
+                  <TaskCard task={activeTask} isAdmin={false} onEdit={() => {}} onDelete={() => {}} />
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        )}
       </div>
 
       {/* Delete confirm */}

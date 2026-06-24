@@ -122,8 +122,8 @@ function TemplateCard({
   onDelete,
 }: {
   template: MessageTemplate;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -138,8 +138,8 @@ function TemplateCard({
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className="font-display text-base font-semibold text-bone">{template.title}</h3>
         <div className="flex shrink-0 items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em]">
-          <button onClick={onEdit} className="text-muted transition-colors hover:text-gold">Edit</button>
-          <button onClick={onDelete} className="text-muted transition-colors hover:text-ember">Delete</button>
+          {onEdit && <button onClick={onEdit} className="text-muted transition-colors hover:text-gold">Edit</button>}
+          {onDelete && <button onClick={onDelete} className="text-muted transition-colors hover:text-ember">Delete</button>}
         </div>
       </div>
 
@@ -163,7 +163,7 @@ function TemplateCard({
 }
 
 /* ── Main panel ──────────────────────────────────────────────────────────── */
-export default function MessagesPanel({ templates: initial }: { templates: MessageTemplate[] }) {
+export default function MessagesPanel({ templates: initial, canManage = true }: { templates: MessageTemplate[]; canManage?: boolean }) {
   const [templates, setTemplates] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -258,7 +258,7 @@ export default function MessagesPanel({ templates: initial }: { templates: Messa
 
         {err && <p className="mb-3 shrink-0 font-mono text-xs text-ember">{err}</p>}
 
-        {!showForm && (
+        {!showForm && canManage && (
           <div className="mb-4 shrink-0">
             <button
               onClick={() => { setShowForm(true); setEditingId(null); }}
@@ -294,8 +294,8 @@ export default function MessagesPanel({ templates: initial }: { templates: Messa
               <TemplateCard
                 key={t.id}
                 template={t}
-                onEdit={() => { setEditingId(t.id); setShowForm(false); }}
-                onDelete={() => handleDelete(t.id)}
+                onEdit={canManage ? () => { setEditingId(t.id); setShowForm(false); } : undefined}
+                onDelete={canManage ? () => handleDelete(t.id) : undefined}
               />
             )
           )}

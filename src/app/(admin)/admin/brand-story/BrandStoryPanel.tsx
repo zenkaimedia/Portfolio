@@ -66,7 +66,7 @@ function useFaqDrag(faqs: FAQ[], onReorder: (ids: string[]) => void) {
 }
 
 /* ── Brand Story tab ─────────────────────────────────────────────────────── */
-function BrandStoryTab({ initialContent }: { initialContent: string }) {
+function BrandStoryTab({ initialContent, userName }: { initialContent: string; userName: string }) {
   const [content, setContent] = useState(initialContent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -85,7 +85,7 @@ function BrandStoryTab({ initialContent }: { initialContent: string }) {
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-hidden">
       <div className="shrink-0 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">Write your brand narrative, mission, values, and positioning so every team member is aligned.</p>
+        <p className="text-sm text-muted">{userName}&apos;s personal script — only visible to you.</p>
         <button
           onClick={save}
           disabled={saving || !dirty}
@@ -147,13 +147,14 @@ function FAQForm({
 
 /* ── FAQ card ────────────────────────────────────────────────────────────── */
 function FAQCard({
-  faq, isDragging, isOver, onDragStart, onDragOver, onDrop, onDragEnd, onEdit, onDelete,
+  faq, isDragging, isOver, canManage, onDragStart, onDragOver, onDrop, onDragEnd, onEdit, onDelete,
 }: {
   faq: FAQ; isDragging: boolean; isOver: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -188,8 +189,10 @@ function FAQCard({
         </div>
         <div className="flex shrink-0 items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em]">
           <button onClick={() => setOpen(v => !v)} className="text-muted hover:text-bone">{open ? "Collapse" : "Expand"}</button>
-          <button onClick={onEdit} className="text-muted hover:text-gold">Edit</button>
-          <button onClick={onDelete} className="text-muted hover:text-ember">Delete</button>
+          {canManage && <>
+            <button onClick={onEdit} className="text-muted hover:text-gold">Edit</button>
+            <button onClick={onDelete} className="text-muted hover:text-ember">Delete</button>
+          </>}
         </div>
       </div>
     </div>
@@ -197,7 +200,7 @@ function FAQCard({
 }
 
 /* ── FAQ tab ─────────────────────────────────────────────────────────────── */
-function FAQTab({ initialFaqs }: { initialFaqs: FAQ[] }) {
+function FAQTab({ initialFaqs, canManage }: { initialFaqs: FAQ[]; canManage: boolean }) {
   const [faqs, setFaqs] = useState(initialFaqs);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -239,8 +242,8 @@ function FAQTab({ initialFaqs }: { initialFaqs: FAQ[] }) {
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-hidden">
       <div className="shrink-0 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">{faqs.length} question{faqs.length !== 1 ? "s" : ""} — drag to reorder.</p>
-        {!showForm && (
+        <p className="text-sm text-muted">{faqs.length} question{faqs.length !== 1 ? "s" : ""}{canManage ? " — drag to reorder." : "."}</p>
+        {!showForm && canManage && (
           <button onClick={() => { setShowForm(true); setEditingId(null); }}
             className="rounded-full border border-gold/40 bg-gold/10 px-6 py-2.5 font-mono text-xs uppercase tracking-[0.22em] text-gold-soft transition-all hover:border-gold hover:bg-gold/20">
             + Add FAQ
@@ -283,6 +286,7 @@ function FAQTab({ initialFaqs }: { initialFaqs: FAQ[] }) {
                 onDragOver={(e) => drag.hover(e, faq.id)}
                 onDrop={(e) => drag.drop(e, faq.id)}
                 onDragEnd={drag.end}
+                canManage={canManage}
                 onEdit={() => { setEditingId(faq.id); setShowForm(false); }}
                 onDelete={() => setConfirmDel(faq)}
               />
@@ -305,10 +309,12 @@ function FAQTab({ initialFaqs }: { initialFaqs: FAQ[] }) {
 
 /* ── Root panel ──────────────────────────────────────────────────────────── */
 export default function BrandStoryPanel({
-  initialStory, initialFaqs,
+  initialStory, initialFaqs, userName, canManageFaqs,
 }: {
   initialStory: string;
   initialFaqs: FAQ[];
+  userName: string;
+  canManageFaqs: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("story");
 
@@ -321,14 +327,14 @@ export default function BrandStoryPanel({
             className={`flex-1 rounded-lg py-2 font-mono text-[11px] uppercase tracking-[0.18em] transition-colors ${
               tab === t ? "bg-gold/15 text-gold" : "text-muted hover:text-bone"
             }`}>
-            {t === "story" ? "Brand Story" : `FAQs (${initialFaqs.length})`}
+            {t === "story" ? `My Script` : `FAQs (${initialFaqs.length})`}
           </button>
         ))}
       </div>
 
       {tab === "story"
-        ? <BrandStoryTab initialContent={initialStory} />
-        : <FAQTab initialFaqs={initialFaqs} />
+        ? <BrandStoryTab initialContent={initialStory} userName={userName} />
+        : <FAQTab initialFaqs={initialFaqs} canManage={canManageFaqs} />
       }
     </div>
   );

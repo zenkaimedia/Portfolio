@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAuthed } from "@/lib/auth";
+import { getCurrentUser, isAuthed } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type FAQ = {
@@ -12,12 +12,14 @@ export type FAQ = {
   created_at: string;
 };
 
-/* ── Brand story ─────────────────────────────────────────────────────────── */
+/* ── Script (per-user brand story) ──────────────────────────────────────── */
 export async function fetchBrandStory(): Promise<string> {
+  const user = await getCurrentUser();
+  if (!user) return "";
   const { data } = await getSupabaseAdmin()
     .from("brand_story")
     .select("content")
-    .eq("id", 1)
+    .eq("user_id", user.id)
     .single();
   return data?.content ?? "";
 }
@@ -25,17 +27,22 @@ export async function fetchBrandStory(): Promise<string> {
 export async function saveBrandStoryAction(
   content: string
 ): Promise<{ ok: true } | { error: string }> {
-  if (!(await isAuthed())) return { error: "Unauthorized." };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthorized." };
   const { error } = await getSupabaseAdmin()
     .from("brand_story")
-    .upsert({ id: 1, content: content.trim(), updated_at: new Date().toISOString() });
+    .upsert(
+      { user_id: user.id, content: content.trim(), updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
   if (error) return { error: error.message };
   revalidatePath("/admin/brand-story");
   return { ok: true };
 }
 
-/* ── FAQs ────────────────────────────────────────────────────────────────── */
+/* ── FAQs (shared across all users) ─────────────────────────────────────── */
 export async function fetchFAQs(): Promise<FAQ[]> {
+  if (!(await isAuthed())) return [];
   const { data } = await getSupabaseAdmin()
     .from("faqs")
     .select("*")
@@ -54,8 +61,7 @@ export async function createFAQAction(
   const { data, error } = await getSupabaseAdmin()
     .from("faqs")
     .insert({ question: question.trim(), answer: answer.trim(), sort_order })
-    .select()
-    .single();
+    .select().single();
   if (error) return { error: error.message };
   return { ok: true, faq: data as FAQ };
 }
@@ -65,27 +71,19 @@ export async function updateFAQAction(
 ): Promise<{ ok: true; faq: FAQ } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   const { data, error } = await getSupabaseAdmin()
-    .from("faqs")
-    .update({ question: question.trim(), answer: answer.trim() })
-    .eq("id", id)
-    .select()
-    .single();
+    .from("faqs").update({ question: question.trim(), answer: answer.trim() }).eq("id", id).select().single();
   if (error) return { error: error.message };
   return { ok: true, faq: data as FAQ };
 }
 
-export async function deleteFAQAction(
-  id: string
-): Promise<{ ok: true } | { error: string }> {
+export async function deleteFAQAction(id: string): Promise<{ ok: true } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   const { error } = await getSupabaseAdmin().from("faqs").delete().eq("id", id);
   if (error) return { error: error.message };
   return { ok: true };
 }
 
-export async function reorderFAQsAction(
-  orderedIds: string[]
-): Promise<{ ok: true } | { error: string }> {
+export async function reorderFAQsAction(orderedIds: string[]): Promise<{ ok: true } | { error: string }> {
   if (!(await isAuthed())) return { error: "Unauthorized." };
   const supabase = getSupabaseAdmin();
   for (let i = 0; i < orderedIds.length; i++) {

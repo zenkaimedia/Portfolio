@@ -13,10 +13,12 @@ const inputCls = "w-full rounded-xl border border-line bg-ink px-4 py-3 text-bon
 const ALL_PERMISSIONS = [
   { key: PERMISSIONS.PROJECTS,    label: "Manage Projects",     desc: "Add, edit, delete projects" },
   { key: PERMISSIONS.SHARE,       label: "Portfolio Sharing",    desc: "Access sharing page" },
-  { key: PERMISSIONS.MESSAGES,    label: "Message Templates",    desc: "Manage message templates" },
-  { key: PERMISSIONS.STORAGE,     label: "Storage",              desc: "View and clean storage" },
-  { key: PERMISSIONS.COMPRESS,    label: "Compress Media",       desc: "Compress images" },
-  { key: PERMISSIONS.BRAND_STORY, label: "Brand Story & FAQs",  desc: "Edit brand content" },
+  { key: PERMISSIONS.MESSAGES,        label: "Message Templates (View)",  desc: "View & copy message templates" },
+  { key: PERMISSIONS.MESSAGES_MANAGE, label: "Message Templates (Manage)", desc: "Add, edit, delete message templates" },
+  { key: PERMISSIONS.STORAGE,         label: "Storage",                    desc: "View and clean storage" },
+  { key: PERMISSIONS.COMPRESS,        label: "Compress Media",             desc: "Compress images" },
+  { key: PERMISSIONS.BRAND_STORY,     label: "Script",                     desc: "View Script page" },
+  { key: PERMISSIONS.FAQS_MANAGE,     label: "FAQs (Manage)",              desc: "Add, edit, delete FAQs" },
   { key: PERMISSIONS.TASKS,       label: "My Tasks",             desc: "Personal task board" },
   { key: PERMISSIONS.TASK_ASSIGN, label: "Assign Tasks to Others", desc: "Can assign tasks to other team members" },
 ];

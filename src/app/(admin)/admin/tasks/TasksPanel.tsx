@@ -525,7 +525,7 @@ export default function TasksPanel({
   isAdmin: boolean;
   canAssign: boolean;
 }) {
-  const { setTasks, moveTask, removeTask, filter, search, setFilter, setSearch } = useAdminTaskStore();
+  const { setTasks, moveTask, removeTask, filter, search, userFilter, setFilter, setSearch, setUserFilter } = useAdminTaskStore();
   const byStatus = useAdminTaskStore((s) => s.byStatus);
 
   // Detect mobile
@@ -612,11 +612,38 @@ export default function TasksPanel({
             </button>
           ))}
         </div>
-        {/* Search — desktop only */}
-        <div className="hidden sm:flex sm:justify-end sm:mt-2">
+        {/* User filter (canAssign only) + Search — desktop only */}
+        <div className="mt-2 hidden items-center justify-end gap-2 sm:flex">
+          {canAssign && (
+            <select
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
+            >
+              <option value="all">👥 All Members</option>
+              {userNames.map(u => (
+                <option key={u.id} value={u.id}>👤 {u.name}</option>
+              ))}
+            </select>
+          )}
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
             className="w-48 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50" />
         </div>
+        {/* Mobile: user filter (canAssign only) */}
+        {canAssign && (
+          <div className="mt-2 sm:hidden">
+            <select
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
+            >
+              <option value="all">👥 All Members</option>
+              {userNames.map(u => (
+                <option key={u.id} value={u.id}>👤 {u.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Board — mobile tabs or desktop Kanban */}

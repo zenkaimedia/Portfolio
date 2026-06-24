@@ -5,6 +5,7 @@ interface AdminTaskStore {
   tasks: AdminTask[];
   filter: string;
   search: string;
+  userFilter: string; // user id or "all"
   setTasks: (t: AdminTask[]) => void;
   addTask: (t: AdminTask) => void;
   updateTask: (id: string, u: Partial<AdminTask>) => void;
@@ -12,6 +13,7 @@ interface AdminTaskStore {
   moveTask: (id: string, status: TaskStatus) => void;
   setFilter: (f: string) => void;
   setSearch: (s: string) => void;
+  setUserFilter: (id: string) => void;
   byStatus: (status: TaskStatus) => AdminTask[];
   stats: () => { total: number; inProgress: number; done: number; overdue: number };
 }
@@ -20,6 +22,7 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
   tasks: [],
   filter: "all",
   search: "",
+  userFilter: "all",
 
   setTasks: (tasks) => set({ tasks }),
   addTask: (task) => set((s) => ({ tasks: [task, ...s.tasks] })),
@@ -28,9 +31,10 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
   moveTask: (id, status) => set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, status } : t) })),
   setFilter: (filter) => set({ filter }),
   setSearch: (search) => set({ search }),
+  setUserFilter: (userFilter) => set({ userFilter }),
 
   byStatus: (status) => {
-    const { tasks, filter, search } = get();
+    const { tasks, filter, search, userFilter } = get();
     return tasks
       .filter((t) => t.status === status)
       .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()))
@@ -38,6 +42,10 @@ export const useAdminTaskStore = create<AdminTaskStore>((set, get) => ({
         if (filter === "all") return true;
         if (filter === "due") return !!t.due_date && t.status !== "done" && new Date(t.due_date) < new Date();
         return t.priority === filter;
+      })
+      .filter((t) => {
+        if (userFilter === "all") return true;
+        return t.assigned_to === userFilter || t.user_id === userFilter;
       })
       .sort((a, b) => {
         const p = { urgent: 0, high: 1, medium: 2, low: 3 };

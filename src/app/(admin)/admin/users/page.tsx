@@ -18,7 +18,7 @@ export default async function UsersPage() {
         </p>
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden pb-8">
-        <UsersPanel initialUsers={users} currentUserId={me?.id ?? ""} />
+        <UsersPanel initialUsers={users} currentUserId={me?.id ?? ""} iAmSuperAdmin={me?.is_super_admin ?? false} />
       </div>
     </div>
   );

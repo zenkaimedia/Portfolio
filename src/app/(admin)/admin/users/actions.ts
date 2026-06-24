@@ -10,10 +10,32 @@ export type AdminUserRow = {
   email: string;
   role: "admin" | "user";
   is_active: boolean;
+  is_super_admin: boolean;
   permissions: string[];
   created_at: string;
   last_login_at: string | null;
 };
+
+/** Transfer super-admin rights to another admin user. */
+export async function transferSuperAdminAction(
+  targetId: string
+): Promise<{ ok: true } | { error: string }> {
+  const me = await getCurrentUser();
+  if (!me?.is_super_admin) return { error: "Only the main admin can transfer admin rights." };
+  if (me.id === targetId) return { error: "You are already the main admin." };
+
+  const supabase = getSupabaseAdmin();
+  // Target must be an active admin
+  const { data: target } = await supabase.from("admin_users").select("role, is_active").eq("id", targetId).single();
+  if (!target?.is_active) return { error: "Target user must be active." };
+  if (target.role !== "admin") return { error: "You can only transfer admin rights to an existing admin." };
+
+  // Transfer: give target super-admin, remove from self
+  await supabase.from("admin_users").update({ is_super_admin: true }).eq("id", targetId);
+  await supabase.from("admin_users").update({ is_super_admin: false }).eq("id", me.id);
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
 
 /** Lightweight name lookup — available to all authenticated users for task attribution. */
 export async function fetchUserNamesAction(): Promise<{ id: string; name: string; role: string }[]> {
@@ -29,11 +51,10 @@ export async function fetchUserNamesAction(): Promise<{ id: string; name: string
 export async function fetchUsersAction(): Promise<AdminUserRow[]> {
   const user = await getCurrentUser();
   if (!user) return [];
-  // Admins get the full list; users with task_assign also need it for the assign dropdown
   if (user.role !== "admin" && !user.permissions.includes("task_assign")) return [];
   const { data } = await getSupabaseAdmin()
     .from("admin_users")
-    .select("id, name, email, role, is_active, permissions, created_at, last_login_at")
+    .select("id, name, email, role, is_active, is_super_admin, permissions, created_at, last_login_at")
     .order("created_at", { ascending: true });
   return (data ?? []) as AdminUserRow[];
 }
@@ -103,6 +124,9 @@ export async function toggleUserActiveAction(
   if (!(await isAdmin())) return { error: "Unauthorized." };
   const me = await getCurrentUser();
   if (me?.id === id) return { error: "You cannot deactivate your own account." };
+  // Super admin cannot be deactivated by another admin
+  const { data: target } = await getSupabaseAdmin().from("admin_users").select("is_super_admin").eq("id", id).single();
+  if (target?.is_super_admin && !me?.is_super_admin) return { error: "The main admin account cannot be deactivated." };
   const { error } = await getSupabaseAdmin()
     .from("admin_users").update({ is_active }).eq("id", id);
   if (error) return { error: error.message };
@@ -117,6 +141,9 @@ export async function deleteUserAction(
   if (!(await isAdmin())) return { error: "Unauthorized." };
   const me = await getCurrentUser();
   if (me?.id === id) return { error: "You cannot delete your own account." };
+  // Super admin cannot be deleted by another admin
+  const { data: target } = await getSupabaseAdmin().from("admin_users").select("is_super_admin").eq("id", id).single();
+  if (target?.is_super_admin && !me?.is_super_admin) return { error: "The main admin account cannot be removed." };
   const { error } = await getSupabaseAdmin().from("admin_users").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/admin/users");

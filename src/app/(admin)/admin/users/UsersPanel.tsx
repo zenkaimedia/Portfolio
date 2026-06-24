@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { AdminUserRow } from "./actions";
-import { createUserAction, updateUserAction, toggleUserActiveAction, deleteUserAction } from "./actions";
+import { createUserAction, updateUserAction, toggleUserActiveAction, deleteUserAction, transferSuperAdminAction } from "./actions";
 import { PERMISSIONS } from "@/lib/permissions";
 import PasswordInput from "@/components/ui/PasswordInput";
 import { fmtIST } from "@/lib/dateIST";
@@ -133,9 +133,9 @@ function UserForm({ initial, onSave, onCancel, busy }: {
   );
 }
 
-function UserCard({ user, isSelf, onEdit, onToggle, onDelete }: {
-  user: AdminUserRow; isSelf: boolean;
-  onEdit: () => void; onToggle: () => void; onDelete: () => void;
+function UserCard({ user, isSelf, iAmSuperAdmin, onEdit, onToggle, onDelete, onTransfer }: {
+  user: AdminUserRow; isSelf: boolean; iAmSuperAdmin: boolean;
+  onEdit: () => void; onToggle: () => void; onDelete: () => void; onTransfer?: () => void;
 }) {
   const initials = user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   return (
@@ -147,6 +147,7 @@ function UserCard({ user, isSelf, onEdit, onToggle, onDelete }: {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-display text-base font-semibold text-bone">{user.name}</span>
+            {user.is_super_admin && <span title="Main Admin">👑</span>}
             {isSelf && <span className="rounded-full bg-gold/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-gold">You</span>}
             <span className={`rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${user.role === "admin" ? "bg-gold/15 text-gold" : "bg-line text-muted"}`}>{user.role}</span>
             {!user.is_active && <span className="rounded-full bg-ember/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ember">Inactive</span>}
@@ -168,13 +169,19 @@ function UserCard({ user, isSelf, onEdit, onToggle, onDelete }: {
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex gap-2 font-mono text-[10px] uppercase tracking-[0.15em]">
             <button onClick={onEdit} className="text-muted hover:text-gold">Edit</button>
-            {!isSelf && (
+            {!isSelf && !user.is_super_admin && (
               <>
                 <button onClick={onToggle} className={user.is_active ? "text-muted hover:text-gold" : "text-muted hover:text-gold-soft"}>
                   {user.is_active ? "Deactivate" : "Activate"}
                 </button>
                 <button onClick={onDelete} className="text-muted hover:text-ember">Remove</button>
               </>
+            )}
+            {/* Transfer Admin — only shown to super admin, only on other admin users */}
+            {!isSelf && iAmSuperAdmin && !user.is_super_admin && user.role === "admin" && onTransfer && (
+              <button onClick={onTransfer} className="text-muted hover:text-gold" title="Transfer main admin rights">
+                Transfer 👑
+              </button>
             )}
           </div>
         </div>
@@ -183,8 +190,8 @@ function UserCard({ user, isSelf, onEdit, onToggle, onDelete }: {
   );
 }
 
-export default function UsersPanel({ initialUsers, currentUserId }: {
-  initialUsers: AdminUserRow[]; currentUserId: string;
+export default function UsersPanel({ initialUsers, currentUserId, iAmSuperAdmin }: {
+  initialUsers: AdminUserRow[]; currentUserId: string; iAmSuperAdmin: boolean;
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [showForm, setShowForm] = useState(false);
@@ -217,6 +224,23 @@ export default function UsersPanel({ initialUsers, currentUserId }: {
     if ("error" in res) { setErr(res.error); return; }
     setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: data.name, role: data.role, permissions: data.permissions } : u));
     setEditingUser(null);
+  }
+
+  function handleTransfer(targetUser: AdminUserRow) {
+    setConfirm({
+      title: `Transfer main admin to ${targetUser.name}?`,
+      message: `${targetUser.name} will become the main admin 👑. You will remain an admin but will no longer be protected from removal by others.`,
+      onConfirm: async () => {
+        setConfirm(null);
+        const res = await transferSuperAdminAction(targetUser.id);
+        if ("error" in res) { setErr(res.error); return; }
+        setUsers(prev => prev.map(u =>
+          u.id === targetUser.id ? { ...u, is_super_admin: true }
+          : u.id === currentUserId ? { ...u, is_super_admin: false }
+          : u
+        ));
+      },
+    });
   }
 
   function confirmToggle(user: AdminUserRow) {
@@ -281,9 +305,11 @@ export default function UsersPanel({ initialUsers, currentUserId }: {
               <UserCard
                 user={user}
                 isSelf={user.id === currentUserId}
+                iAmSuperAdmin={iAmSuperAdmin}
                 onEdit={() => { setEditingUser(user); setShowForm(false); }}
                 onToggle={() => confirmToggle(user)}
                 onDelete={() => confirmDelete(user)}
+                onTransfer={() => handleTransfer(user)}
               />
             </motion.div>
           )

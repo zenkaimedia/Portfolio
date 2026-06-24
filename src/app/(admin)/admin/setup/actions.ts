@@ -26,6 +26,7 @@ export async function createFirstAdminAction(
     password_hash: hashPassword(password, id),
     role: "admin",
     is_active: true,
+    is_super_admin: true,  // first admin is always super admin
     permissions: [],
   });
 

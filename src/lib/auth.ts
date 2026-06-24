@@ -15,6 +15,7 @@ export type AdminUser = {
   role: "admin" | "user";
   permissions: string[];
   is_active: boolean;
+  is_super_admin: boolean;
 };
 
 /* ── Password hashing (no env var needed) ────────────────────────────────── */
@@ -54,7 +55,7 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
 
     const { data } = await getSupabaseAdmin()
       .from("admin_users")
-      .select("id, name, email, role, permissions, is_active, password_hash")
+      .select("id, name, email, role, permissions, is_active, is_super_admin, password_hash")
       .eq("id", userId)
       .eq("is_active", true)
       .single();

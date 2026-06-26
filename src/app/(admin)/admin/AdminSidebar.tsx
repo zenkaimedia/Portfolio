@@ -32,14 +32,14 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/tasks",       label: "My Tasks",           icon: TaskIcon,     exact: false, permission: PERMISSIONS.TASKS       },
       { href: "/admin/messages",    label: "Message Templates",  icon: MessageIcon,  exact: false, permission: PERMISSIONS.MESSAGES    },
       { href: "/admin/brand-story", label: "Script",             icon: BookIcon,     exact: false, permission: PERMISSIONS.BRAND_STORY },
+      { href: "/admin/share",       label: "Portfolio Sharing",  icon: LinkIcon,     exact: false, permission: PERMISSIONS.SHARE       },
     ],
   },
   {
-    section: "Portfolio",
+    section: "Management",
     items: [
       { href: "/admin",             label: "Add Project",       icon: PlusIcon,     exact: true,  permission: PERMISSIONS.PROJECTS    },
       { href: "/admin/manage",      label: "Manage",             icon: LayersIcon,   exact: false, permission: PERMISSIONS.PROJECTS    },
-      { href: "/admin/share",       label: "Portfolio Sharing",  icon: LinkIcon,     exact: false, permission: PERMISSIONS.SHARE       },
       { href: "/admin/compress",    label: "Compress Media",     icon: CompressIcon, exact: false, permission: PERMISSIONS.COMPRESS    },
       { href: "/admin/storage",     label: "Storage",            icon: StorageIcon,  exact: false, permission: PERMISSIONS.STORAGE     },
     ],

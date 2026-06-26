@@ -31,8 +31,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/tasks",       label: "My Tasks",           icon: TaskIcon,     exact: false, permission: PERMISSIONS.TASKS       },
       { href: "/admin/messages",    label: "Message Templates",  icon: MessageIcon,  exact: false, permission: PERMISSIONS.MESSAGES    },
-      { href: "/admin/brand-story", label: "Script",             icon: BookIcon,     exact: false, permission: PERMISSIONS.BRAND_STORY },
       { href: "/admin/share",       label: "Portfolio Sharing",  icon: LinkIcon,     exact: false, permission: PERMISSIONS.SHARE       },
+      { href: "/admin/brand-story", label: "Script",             icon: BookIcon,     exact: false, permission: PERMISSIONS.BRAND_STORY },
     ],
   },
   {
